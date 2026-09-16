@@ -154,9 +154,10 @@ function makeNode(node) {
     });
     if (node.has_index) {
       row.classList.add('navigable');
-      // 仅菜单文字触发导航（M2 用户决策）：图标/行内空白点击不导航
-      // 不绑定 row 级监听——箭头之外的区域点击无动作
-      row.querySelector('.tree-label').addEventListener('click', () => {
+      // 三区语义（M2 最终）：菜单文字=导航；箭头与行内空白=展开/收起
+      row.addEventListener('click', () => toggleBranch(row, childrenEl, node));
+      row.querySelector('.tree-label').addEventListener('click', (e) => {
+        e.stopPropagation(); // 只导航不展开
         location.href = encodeURI(normalizeUrl(node.url));
       });
     } else {
