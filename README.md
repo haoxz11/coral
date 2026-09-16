@@ -107,6 +107,9 @@ coral [选项]
 | `--bind <addr>` | 覆盖配置中的监听地址（默认 0.0.0.0） |
 | `--draft true\|false` | 覆盖草稿开关（见 [content] 配置） |
 | `--search true\|false` | 覆盖全文搜索开关 |
+| `--backfill-date <dir>` | 一次性维护命令：把文件的可靠时间写入 Markdown 的 front matter `date` 字段（执行后退出，不启动服务；详见下文） |
+| `--force` | 与 `--backfill-date` 配合：已有 `date` 的文件也替换（默认只补齐无值的） |
+| `--all` | 与 `--backfill-date` 配合：处理目录下全部文件（git 模式默认只处理工作区有变更的文件） |
 | `-v` / `-V` / `--version` | 输出版本号并退出 |
 
 典型用法：
@@ -117,6 +120,31 @@ coral --dir ./docs                          # 零配置：直接把 ./docs 变�
 coral --dir ./docs --port 8080              # 零配置 + 单项覆盖
 coral --dir ./docs --search true            # 零配置 + 临时开启全文搜索
 ```
+
+### backfill-date：批量补 front matter date
+
+排序场景（发布版本、需求文档目录想按时间倒序看最新）依赖 front matter 的 `date` 字段，但存量文档常常没写。这个命令把每个文件的可靠时间批量写入：
+
+```bash
+coral --backfill-date ./content              # git 仓库：只处理工作区有变更的文件
+coral --backfill-date ./content --all        # 处理目录下全部 md
+coral --backfill-date ./content --force      # 已有 date 的文件也替换（默认跳过）
+coral --backfill-date ./content --all --force  # 组合使用
+```
+
+时间来源规则：
+
+| 场景 | 默认（不加 `--all`） | 加 `--all` |
+|---|---|---|
+| git 仓库（目录本身或其祖先是 git 仓库） | 只处理**工作区有变更**的文件（改过的/待提交的/新文件）：改过的用 git 最后提交时间，新文件用文件修改时间 | 全部 md：已提交的用 git 最后提交时间，未提交的用文件修改时间 |
+| 非 git 目录 | 全部 md 用文件修改时间（`--all` 无区别） | 同左 |
+
+说明：
+
+- 只处理 `.md` 文件；无 front matter 块的文件会自动创建（只含 `date`）
+- git 最后提交时间比文件修改时间可靠——git 同步/rsync 会把所有文件的修改时间刷成同一时刻，而提交时间是内容真实变更的时刻
+- 执行后**需要重启 Coral 服务**才在目录树排序中生效（树缓存按目录变化判断过期，不感知文件内容变化）
+- 命令输出统计：补齐多少（其中用文件修改时间回填多少）、跳过多少（已有 date）、替换多少（`--force`）
 
 `--dir` 零配置模式的细节：
 
