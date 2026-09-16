@@ -444,6 +444,7 @@ pub fn initial_tree_json_scoped(
         title: dm.title.clone(),
         weight: dm.weight,
         icon: dm.icon.clone(),
+        has_index: dm.branch_page.is_some(),
         node_type: coral_core::tree::NodeType::Branch,
         has_children: !children.is_empty(),
         children,

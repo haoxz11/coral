@@ -27,6 +27,9 @@ pub struct TreeNode {
     /// 菜单图标（frontmatter `icon`：Iconify 名或图片 URL）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// 目录是否有分支页首页（仅 branch 有意义；M2：标题可导航判定）
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub has_index: bool,
     pub node_type: NodeType,
     /// 前端据此显示展开箭头
     pub has_children: bool,
@@ -52,8 +55,12 @@ pub struct SortKey {
     file_stem: String,
 }
 
+/// 判定口径（M2 修正）：前缀形态必须是"数字.剩余"（`1.入门`、`26.0917`）；
+/// 整体纯数字（如年份目录 `2022`）**不算前缀**——否则它以前缀升序压过
+/// date 倒序，年份目录永远正序（应走 date 倒序：新的在前）。
 fn file_numeric_prefix(file_stem: &str) -> Option<u64> {
-    let num = file_stem.split('.').next()?;
+    // split_once：必须有"."和剩余部分，纯数字整体不算
+    let (num, _rest) = file_stem.split_once('.')?;
     if !num.is_empty() && num.bytes().all(|b| b.is_ascii_digit()) {
         num.parse().ok()
     } else {
@@ -158,6 +165,12 @@ pub fn build_subtree(
                 // 单首页目录降级为 leaf（M2 用户决策）：有分支页（回退链任一命中）
                 // 且除分支页外无其他可见子项——树上可点击进首页、无展开箭头；
                 // 无分支页的空目录仍为 branch（无首页可导航，仅作分组）
+                has_index: {
+                    // 单首页目录降级 leaf 时不输出 has_index（leaf 导航由
+                    // <a> 天然支持，字段无意义）
+                    let has_kids = dir_has_visible_children(index, child_dm, draft_enabled);
+                    has_kids && child_dm.branch_page.is_some()
+                },
                 node_type: {
                     let has_kids = dir_has_visible_children(index, child_dm, draft_enabled);
                     if !has_kids && child_dm.branch_page.is_some() {
@@ -206,6 +219,7 @@ pub fn build_subtree(
                     .unwrap_or_else(|| strip_numeric_prefix(&leaf_stem).to_string()),
                 weight: page.fm.weight,
                 icon: page.fm.icon.clone(),
+                has_index: false,
                 node_type: NodeType::Leaf,
                 has_children: false,
                 children: Vec::new(),
@@ -361,5 +375,8 @@ mod tests {
         assert_eq!(file_numeric_prefix("10.deploy"), Some(10));
         assert_eq!(file_numeric_prefix("guide"), None);
         assert_eq!(file_numeric_prefix("1x.bad"), None);
+        // M2 修正：纯数字整体（年份目录）不算前缀，走 date 倒序
+        assert_eq!(file_numeric_prefix("2022"), None);
+        assert_eq!(file_numeric_prefix("26.0917"), Some(26));
     }
 }

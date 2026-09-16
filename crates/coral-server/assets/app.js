@@ -106,6 +106,8 @@ function makeNode(node) {
   const li = document.createElement('li');
   const row = document.createElement(node.node_type === 'branch' ? 'div' : 'a');
   row.className = 'tree-node' + (node.node_type === 'leaf' ? ' leaf' : '');
+  const navigable = node.node_type === 'leaf' || node.has_index;
+  row.classList.toggle('navigable', navigable);
   // 高亮同时覆盖文档页与目录索引页（branch 的 url 即其 _index 页地址）
   const nu = normalizeUrl(node.url);
   if (nu === currentPath || nu === defaultPath) row.classList.add('current');
@@ -144,7 +146,20 @@ function makeNode(node) {
     li.appendChild(childrenEl);
     // 恢复记忆的展开态 / 当前页祖先链默认展开
     initialLoads.push(applyBranchState(row, childrenEl, node));
-    row.addEventListener('click', () => toggleBranch(row, childrenEl, node));
+    // 双区交互（M2）：箭头区=展开/收起（stopPropagation 防误触导航）；
+    // 标题区=导航进目录首页（has_index 时）；无首页目录整行仍为展开
+    arrow.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleBranch(row, childrenEl, node);
+    });
+    if (node.has_index) {
+      row.classList.add('navigable');
+      row.addEventListener('click', () => {
+        location.href = encodeURI(normalizeUrl(node.url));
+      });
+    } else {
+      row.addEventListener('click', () => toggleBranch(row, childrenEl, node));
+    }
   } else if (node.node_type === 'branch') {
     // 无子项的目录：点击仅展开（空）
     row.addEventListener('click', () => {

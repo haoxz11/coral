@@ -189,7 +189,7 @@ fn test_tree_json_matches_expected() {
             "url": "/readme-dir",
             "title": "读我",
             "weight": 3,
-            "node_type": "branch",
+            "node_type": "leaf",
             "has_children": false
         },
         {
@@ -197,6 +197,7 @@ fn test_tree_json_matches_expected() {
             "title": "文档集",
             "weight": 5,
             "node_type": "branch",
+            "has_index": true,
             "has_children": true,
             "children": [
                 {
@@ -204,6 +205,7 @@ fn test_tree_json_matches_expected() {
                     "title": "深层",
                     "weight": null,
                     "node_type": "branch",
+            "has_index": true,
                     "has_children": true
                 }
             ]
@@ -213,6 +215,7 @@ fn test_tree_json_matches_expected() {
             "title": "指南",
             "weight": 10,
             "node_type": "branch",
+            "has_index": true,
             "has_children": true,
             "children": [
                 {
@@ -227,6 +230,7 @@ fn test_tree_json_matches_expected() {
                     "title": "进阶",
                     "weight": 2,
                     "node_type": "branch",
+            "has_index": true,
                     "has_children": true
                 }
             ]
@@ -236,6 +240,7 @@ fn test_tree_json_matches_expected() {
             "title": "混合",
             "weight": null,
             "node_type": "branch",
+            "has_index": true,
             "has_children": true,
             "children": [
                 {
@@ -274,7 +279,7 @@ fn test_tree_json_matches_expected() {
             "url": "/index-dir",
             "title": "索引页",
             "weight": null,
-            "node_type": "branch",
+            "node_type": "leaf",
             "has_children": false
         },
         {
@@ -304,7 +309,7 @@ fn test_tree_json_matches_expected() {
             "url": "/reference",
             "title": "参考资料",
             "weight": null,
-            "node_type": "branch",
+            "node_type": "leaf",
             "has_children": false
         },
         {
@@ -312,6 +317,7 @@ fn test_tree_json_matches_expected() {
             "title": "rootreadme-draft",
             "weight": null,
             "node_type": "branch",
+            "has_index": true,
             "has_children": true,
             "children": [
                 {
@@ -500,11 +506,8 @@ fn test_single_index_dir_downgrades_to_leaf() {
         NodeType::Branch,
         "多子项目录仍为 branch"
     );
-    assert_eq!(
-        find("empty").node_type,
-        NodeType::Branch,
-        "无首页空目录仍为 branch（无导航目标）"
-    );
+    // 无首页空目录（真空）已被 M2 真空过滤隐藏，不进树——见
+    // test_empty_dir_hidden_but_path_node_kept
 }
 
 #[test]
