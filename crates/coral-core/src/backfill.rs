@@ -53,10 +53,12 @@ pub fn backfill_date(root: &Path, force: bool, all: bool) -> std::io::Result<Bac
                 if from_mtime {
                     report.mtime_filled += 1;
                 }
+                println!("补齐 {} → {date}", file.display());
             }
             ApplyOutcome::Replaced(new_content) => {
                 std::fs::write(&file, new_content)?;
                 report.replaced += 1;
+                println!("替换 {} → {date}", file.display());
             }
             ApplyOutcome::Skipped => report.skipped_has_date += 1,
         }
