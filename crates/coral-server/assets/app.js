@@ -231,8 +231,11 @@ async function ensureChildren(childrenEl, node) {
 function applyBranchState(row, childrenEl, node) {
   const dirUrl = normalizeUrl(node.url);
   const explicit = userExpanded[dirUrl];
-  // 展开优先级：用户显式开关 > 当前页祖先链
-  const open = explicit !== undefined ? explicit : isAncestorOfCurrent(dirUrl);
+  // 展开优先级（M2 修正）：当前页节点自身（含目录首页）始终展开 >
+  // 用户显式开关 > 当前页祖先链——导航进目录首页要看其子项，
+  // 旧"显式收起不反弹"对当前页自身不适用
+  const isCurrent = dirUrl === currentPath;
+  const open = isCurrent ? true : explicit !== undefined ? explicit : isAncestorOfCurrent(dirUrl);
   row.classList.toggle('expanded', open);
   childrenEl.classList.toggle('open', open);
   if (open) return ensureChildren(childrenEl, node); // 调用方聚合等待
