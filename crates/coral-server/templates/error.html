@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+{% block title %}{{ code }} · {{ site_title }}{% endblock %}
+{% block content %}
+<article class="error-page">
+  <h1>{{ code }}</h1>
+  <p>{{ message }}</p>
+  <p><a href="/">返回首页</a></p>
+</article>
+{% endblock %}

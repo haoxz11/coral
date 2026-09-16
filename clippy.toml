@@ -1,0 +1,2 @@
+# clippy 门槛以命令行为准：cargo clippy --workspace --all-targets -- -D warnings
+# 此文件仅承载未来需要的项目级阈值（如函数长度），当前保持最小。

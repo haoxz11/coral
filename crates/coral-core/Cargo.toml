@@ -1,0 +1,36 @@
+[package]
+name = "coral-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "coral 领域层：frontmatter/扫描/树/渲染/缓存，纯同步代码，无运行时依赖"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml_ng = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+comrak = { workspace = true }
+syntect = { workspace = true }
+two-face = { workspace = true }
+xxhash-rust = { workspace = true }
+tantivy = { workspace = true }
+tantivy-jieba = { workspace = true }
+gix = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+
+[[test]]
+name = "render_golden"
+path = "tests/render_golden.rs"
+
+[[test]]
+name = "cache_integration"
+path = "tests/cache_integration.rs"

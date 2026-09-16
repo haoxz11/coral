@@ -1,0 +1,9 @@
+/target
+/cache
+crates/coral-server/cache
+.codegraph
+project
+.trellis
+.zcode
+.codex
+.docs

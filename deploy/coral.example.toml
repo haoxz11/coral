@@ -1,0 +1,42 @@
+# coral 配置示例。所有路径为占位示例，不绑定任何实际目录。
+# CLI 参数可覆盖对应配置项。
+
+[server]
+port = 3000
+# 监听地址；默认 0.0.0.0（局域网可访问），仅本机使用可改为 "127.0.0.1"
+bind = "0.0.0.0"
+# 页脚文案；不配置或留空回退首页（根 _index.md）title
+footer = 
+
+[content]
+root = "/path/to/your/content"   # markdown 根目录（必须存在，否则启动报错退出）
+exclude = []                      # 排除目录（相对路径）
+draft = false                     # false：draft 文档彻底 404；true：正常渲染并进树
+
+[tree]
+initial_depth = 2   # 首屏层级
+expand_depth = 1    # 展开时预载层级
+
+[cache]
+dir = "./cache"     # 缓存目录（纯派生数据，可随时删除）
+
+[log]
+format = "pretty"   # pretty | json（json 供 K8s 采集）
+
+[search]
+enabled = false   # 全文搜索：默认关闭；开启后首次访问后台建索引
+
+[git]
+enabled = false   # 内容仓库同步：默认关闭；开启后启动 clone + /git/webhook
+# remote = "git@gitlab.example.com:group/docs.git"   # 开启时必填
+# branch = "main"                                     # 开启时必填
+# watch_dir = "docs"                                  # 仓库内目录 → 镜像到 content.root 根
+# private_key_path = "/etc/coral/id_ed25519"        # SSH 私钥（Secret 挂载 defaultMode: 0400）
+# host_key = ""                                       # 可选；空 = 首次信任记录
+# secret_token = ""                                   # webhook 校验；空 = 仅本机
+# shallow = true                                      # 首次 clone 只拉最新快照（默认 true；需历史回滚能力时设 false）
+
+[render]
+# mermaid_cdn = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"  # 内网可指向自建 mirror
+# katex_cdn = "https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"
+inline_math = false   # 行内 $...$ 公式识别（默认关闭防 $ 误伤；块级 $$ 默认启用）

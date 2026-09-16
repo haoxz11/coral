@@ -1,0 +1,133 @@
+# coral K8s 部署示例
+# 单副本：多副本各自独立缓存、首访各自冷，留待后续扩展
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coral-config
+data:
+  coral.toml: |
+    [server]
+    port = 3000
+    bind = "0.0.0.0"   # 容器部署必须 0.0.0.0
+
+    [content]
+    root = "/content"          # PVC 挂载点
+    exclude = []
+    draft = false
+
+    [tree]
+    initial_depth = 2
+    expand_depth = 1
+
+    [cache]
+    dir = "/cache"             # emptyDir（纯派生数据，可随时删除）
+
+    [log]
+    format = "json"            # K8s 采集
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coral
+spec:
+  replicas: 1                  # 单副本：多副本各自独立缓存、首访各自冷
+  selector:
+    matchLabels:
+      app: coral
+  template:
+    metadata:
+      labels:
+        app: coral
+    spec:
+      # 优雅停机余量：停机上限 10s + K8s 强杀余量
+      terminationGracePeriodSeconds: 15
+      containers:
+        - name: coral
+          image: coral:latest
+          ports:
+            - containerPort: 3000
+          args: ["--config", "/etc/coral/coral.toml"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/coral
+              readOnly: true
+            - name: cache
+              mountPath: /cache        # 缓存可写卷（emptyDir）
+            - name: content
+              mountPath: /content
+              readOnly: true           # 内容只读
+          readinessProbe:              # 就绪 = 索引构建完成
+            httpGet:
+              path: /readyz
+              port: 3000
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:               # 存活 = 进程可用
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"          # 常驻内存预算 ≤500MB
+      volumes:
+        - name: config
+          configMap:
+            name: coral-config
+        - name: cache
+          emptyDir: {}
+        - name: content
+          persistentVolumeClaim:
+            claimName: coral-content
+            # NFS 网络挂载时自动降级 Poll（statfs 检测）
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: coral-content
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 2Gi
+# --- git-sync 形态：content 卷可写 + 私钥 Secret ---
+# 开启 [git] 后 content 不再 readOnly（同步需要写入），私钥用 Secret 挂载。
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: coral-git-key
+# type: Opaque
+# stringData 不适合二进制——生产用 kubectl create secret generic coral-git-key --from-file=id_ed25519=./id_ed25519
+# 并在下方挂载 defaultMode: 0400（gix SSH 拒绝宽松权限）。
+# ---
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: coral-git-sync
+# spec:
+#   replicas: 1
+#   template:
+#     spec:
+#       containers:
+#         - name: coral
+#           volumeMounts:
+#             - name: content
+#               mountPath: /content
+#               readOnly: false        # git-sync 需要写入（与只读形态互斥）
+#             - name: git-key
+#               mountPath: /etc/coral/key
+#               readOnly: true
+#       volumes:
+#         - name: content
+#           emptyDir: {}               # 或可写 PVC（镜像同步填充）
+#         - name: git-key
+#           secret:
+#             secretName: coral-git-key
+#             defaultMode: 0400

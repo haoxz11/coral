@@ -1,0 +1,50 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/coral-core",
+    "crates/coral-server",
+    "crates/coral-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+# 版本按 docs/技术设计.md §4 精确锁定，升级走显式变更
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+serde_yaml_ng = "0.10.0"
+toml = "1.1.6"
+thiserror = "2.0.20"
+anyhow = "1.0.104"
+tracing = "0.1.44"
+comrak = "0.55.0"
+syntect = "5.3.0"
+two-face = "0.5.2"
+xxhash-rust = { version = "0.8.18", features = ["xxh3"] }
+tantivy = "0.26.2"
+gix = { version = "0.87.1", default-features = false, features = ["worktree-mutation", "blocking-network-client", "revparse-regex", "sha1"] }
+tantivy-jieba = "0.20.0"
+axum = "0.8.9"
+clap = { version = "4.6.6", features = ["derive"] }
+tower-http = { version = "0.7.1", features = ["trace"] }
+tracing-subscriber = { version = "0.3.23", features = ["fmt", "json", "env-filter"] }
+notify = "=8.0.0"
+nix = { version = "0.31.3", features = ["fs"] }
+askama = "0.16.1"
+rust-embed = "8.12.0"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "signal"] }
+
+# 内部 crate
+coral-core = { path = "crates/coral-core" }
+coral-server = { path = "crates/coral-server" }
+
+[profile.release]
+lto = "thin"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

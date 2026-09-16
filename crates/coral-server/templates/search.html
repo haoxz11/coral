@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% block title %}搜索：{{ query }} · {{ site_title }}{% endblock %}
+{% block content %}
+<article class="page">
+  <nav class="breadcrumb" aria-label="面包屑">
+    <span class="crumb-current">搜索：{{ query }}</span>
+  </nav>
+  <div class="page-body">
+    <div class="content search-results">
+      {% if query == "" %}
+        <p class="search-hint">输入关键词开始搜索</p>
+      {% elif enabled == 0 %}
+        <p class="search-hint">搜索未开启（coral.toml [search] enabled）</p>
+      {% elif building == 1 %}
+        <p class="search-hint">搜索索引构建中，请稍候…</p>
+      {% elif hits.len() == 0 %}
+        <p class="search-hint">未找到与“{{ query }}”相关的文档</p>
+      {% else %}
+        <p class="search-meta">找到 {{ total }} 条与“{{ query }}”相关的结果{% if pages_total > 1 %}（第 {{ page }}/{{ pages_total }} 页）{% endif %}</p>
+        <ul class="search-hit-list">
+          {% for hit in hits %}
+          <li class="search-hit">
+            <a class="search-hit-title" href="{{ hit.url }}{% if hl_param != "" %}?hl={{ hl_param }}{% endif %}">{{ hit.title }}</a>
+            <span class="search-hit-path">{{ hit.dir_path }}</span>
+            <span class="search-hit-date">{{ hit.date_display }}</span>
+            <p class="search-hit-snippet">{{ hit.snippet|safe }}</p>
+          </li>
+          {% endfor %}
+        </ul>
+        {% if pages_total > 1 %}
+        <nav class="search-pagination" aria-label="分页">
+          {% if page > 1 %}
+          <a class="page-link" href="/search?q={{ query_encoded }}&page={{ page - 1 }}">上一页</a>
+          {% endif %}
+          {% for p in page_numbers %}
+          {% if *p == 0 %}
+          <span class="page-link ellipsis">…</span>
+          {% elif *p == page %}
+          <span class="page-link current">{{ p }}</span>
+          {% else %}
+          <a class="page-link" href="/search?q={{ query_encoded }}&page={{ p }}">{{ p }}</a>
+          {% endif %}
+          {% endfor %}
+          {% if page < pages_total %}
+          <a class="page-link" href="/search?q={{ query_encoded }}&page={{ page + 1 }}">下一页</a>
+          {% endif %}
+        </nav>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</article>
+{% endblock %}

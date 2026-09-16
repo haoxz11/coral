@@ -1,0 +1,25 @@
+[package]
+name = "coral-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "coral 入口：clap 参数、配置加载、tracing 初始化、生命周期与优雅停机"
+repository = "https://github.com/haoxz11/coral"
+homepage = "https://github.com/haoxz11/coral"
+
+[[bin]]
+name = "coral"
+path = "src/main.rs"
+
+[dependencies]
+coral-core = { workspace = true }
+coral-server = { workspace = true }
+anyhow = { workspace = true }
+axum = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

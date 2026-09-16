@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+{% block title %}{{ page_title }} · {{ site_title }}{% endblock %}
+{% block content %}
+<article class="page">
+  {% if breadcrumbs.len() > 0 %}
+  <nav class="breadcrumb" aria-label="面包屑">
+    {% for crumb in breadcrumbs %}
+      {% if crumb.current %}
+        <span class="crumb-current">{{ crumb.title }}</span>
+      {% else %}
+        <a href="{{ crumb.url }}">{{ crumb.title }}</a><span class="crumb-sep">/</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
+  {% endif %}
+  <div class="page-body">
+    <div class="content coral-content">{% if inject_title %}<h1>{{ page_title }}</h1>{% endif %}{{ content_html|safe }}</div>
+    {% if toc.len() > 0 %}
+    <aside class="toc" id="toc" aria-label="页内目录">
+      <div class="toc-head">
+        <div class="toc-title">本页目录</div>
+        <button class="toc-collapse" id="toc-collapse" aria-label="收起目录" title="收起目录">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </button>
+      </div>
+      <nav class="toc-nav">
+        {% for entry in toc %}
+        <a class="toc-item toc-l{{ entry.level }}" href="#{{ entry.anchor }}">{{ entry.title }}</a>
+        {% endfor %}
+      </nav>
+    </aside>
+    {% endif %}
+  </div>
+  {% if date_footer != "" %}
+  <div class="last-updated">最后更新：{{ date_footer }}</div>
+  {% endif %}
+</article>
+{% endblock %}

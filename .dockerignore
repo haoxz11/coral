@@ -1,0 +1,14 @@
+# 排除本机构建产物，但放行交叉编译出的 coral 二进制（deploy/Dockerfile COPY 需要）
+target/*
+!target/x86_64-unknown-linux-gnu
+target/x86_64-unknown-linux-gnu/*
+!target/x86_64-unknown-linux-gnu/release
+target/x86_64-unknown-linux-gnu/release/*
+!target/x86_64-unknown-linux-gnu/release/coral
+cache/
+.git/
+.trellis/
+.codegraph/
+.github/
+.zcode/
+project

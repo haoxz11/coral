@@ -1,0 +1,34 @@
+{% extends "layout.html" %}
+{% block title %}{{ site_title }}{% endblock %}
+{% block content %}
+<article class="home">
+  <section class="home-hero">
+    {% if project_icon != "" %}<span class="home-logo" data-icon="{{ project_icon }}"></span>{% endif %}
+    <h1 class="home-title">{{ page_title }}</h1>
+    {% if blocks.len() > 0 %}
+    <div class="home-blocks">
+      {% for b in blocks %}
+      <div class="home-block">
+        <div class="home-block-title">{{ b.title }}</div>
+        <div class="home-block-desc">{{ b.desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if primary_action_url != "" %}
+    <a class="home-btn-primary" href="{{ primary_action_url }}">{{ primary_action_text }}</a>
+    {% endif %}
+  </section>
+  <section class="home-features">
+    <h2 class="home-features-title">文档库</h2>
+    <div class="home-cards">
+      {% for c in cards %}
+      <a class="home-card" href="{{ c.url }}">
+        {% if c.icon != "" %}<span class="home-card-icon" data-icon="{{ c.icon }}"></span>{% endif %}
+        <span class="home-card-title">{{ c.title }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+</article>
+{% endblock %}
