@@ -47,6 +47,15 @@ struct Args {
     /// 输出版本号并退出（与 -V/--version 等效）
     #[arg(short = 'v', action = clap::ArgAction::Version)]
     print_version: (),
+
+    /// 一次性维护：把 git 最后提交时间写入 md 的 frontmatter date
+    /// （无值补齐，--force 替换；执行后退出，不启动服务）
+    #[arg(long, conflicts_with_all = ["config", "dir"])]
+    backfill_date: Option<std::path::PathBuf>,
+
+    /// 与 --backfill-date 配合：已有 date 也替换
+    #[arg(long, requires = "backfill_date")]
+    force: bool,
 }
 
 /// args → 配置（R6：纯函数便于参数矩阵单测）。
@@ -156,6 +165,18 @@ async fn main() {
 
 async fn run() -> Result<()> {
     let args = Args::parse();
+    // backfill-date：一次性维护命令，执行后退出（不启动服务）
+    if let Some(root) = &args.backfill_date {
+        let root = root
+            .canonicalize()
+            .with_context(|| format!("--backfill-date 目录不存在：{}", root.display()))?;
+        let report = coral_core::backfill::backfill_date(&root, args.force)?;
+        println!(
+            "backfill-date 完成：补齐 {}，跳过（已有 date）{}，替换（--force）{}，无 git 历史 {}",
+            report.filled, report.skipped_has_date, report.replaced, report.no_history
+        );
+        return Ok(());
+    }
     if args.config.is_none() && args.dir.is_none() {
         usage_error_and_exit();
     }

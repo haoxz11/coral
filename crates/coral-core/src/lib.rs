@@ -4,6 +4,7 @@
 //! 模块：config（配置）、frontmatter、scanner、tree、render、
 //! shortcode、highlight、cache。
 
+pub mod backfill;
 pub mod cache;
 pub mod config;
 pub mod frontmatter;
