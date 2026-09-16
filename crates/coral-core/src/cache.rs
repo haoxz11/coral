@@ -44,6 +44,10 @@ pub struct PageEntry {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TreeEntry {
     pub mtime_ms: u64,
+    /// 直接子项（md+子目录）mtime+size 聚合和（M2）：backfill 等改文件
+    /// 内容不改变目录 mtime，仅目录 mtime 判旧会复用旧排序的树缓存
+    /// （真实踩坑：年份排序修复后历史归档缓存仍旧序）。
+    pub fingerprint: u64,
     pub file: String,
 }
 
@@ -238,7 +242,23 @@ impl CacheStore {
     }
 
     /// 写树 JSON + 更新内存条目。
-    pub fn store_tree(&self, dir: &str, mtime: SystemTime, json: &str) -> Result<(), CacheError> {
+    /// 树条目（含指纹），staleness 判定用。
+    pub fn lookup_tree_entry(&self, dir: &str) -> Option<TreeEntry> {
+        self.manifest
+            .lock()
+            .expect("manifest 锁中毒")
+            .trees
+            .get(dir)
+            .cloned()
+    }
+
+    pub fn store_tree(
+        &self,
+        dir: &str,
+        mtime: SystemTime,
+        fingerprint: u64,
+        json: &str,
+    ) -> Result<(), CacheError> {
         let file = tree_file_rel(dir);
         write_atomic(&self.dir.join(&file), json.as_bytes())?;
         let mut manifest = self.manifest.lock().expect("manifest 锁中毒");
@@ -246,6 +266,7 @@ impl CacheStore {
             dir.to_string(),
             TreeEntry {
                 mtime_ms: system_time_ms(mtime),
+                fingerprint,
                 file,
             },
         );
@@ -394,6 +415,7 @@ mod tests {
             "guide".to_string(),
             TreeEntry {
                 mtime_ms: 1756000000000,
+                fingerprint: 0,
                 file: "tree/ab12.json".to_string(),
             },
         );

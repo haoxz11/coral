@@ -212,7 +212,9 @@ fn test_flush_persists_and_survives_restart() {
         store
             .store_page("x/y.md", "/x/y", mtime, 77, "<p>y</p>", true)
             .unwrap();
-        store.store_tree("x", mtime, "[{\"title\":\"t\"}]").unwrap();
+        store
+            .store_tree("x", mtime, 0, "[{\"title\":\"t\"}]")
+            .unwrap();
         store.flush().unwrap();
     }
     let store2 = CacheStore::open(&cache_dir);
@@ -259,7 +261,7 @@ fn test_tree_invalidation_and_etag_semantics() {
     let store = CacheStore::open(&tmp.path().join("cache"));
     let mtime = SystemTime::UNIX_EPOCH + Duration::from_secs(10);
     store
-        .store_tree("guide", mtime, "{\"children\":[]}")
+        .store_tree("guide", mtime, 0, "{\"children\":[]}")
         .unwrap();
     assert!(store.lookup_tree("guide").is_some());
     store.invalidate_tree("guide");
@@ -283,6 +285,7 @@ fn test_tree_invalidation_and_etag_semantics() {
             .unwrap()
             .dirs[Path::new("guide")]
             .mtime,
+            0,
             "{}",
         )
         .unwrap();

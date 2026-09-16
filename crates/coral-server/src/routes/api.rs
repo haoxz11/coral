@@ -79,9 +79,13 @@ pub async fn tree_children(
     };
 
     let dir_key = dir_rel.to_string_lossy().into_owned();
+    // 子内容指纹（M2）：目录 mtime 之外，直接子项的 mtime+size 聚合
+    // ——backfill 改文件内容（写 date）不改目录 mtime，仅靠目录 mtime 会
+    // 复用旧排序的树缓存（年份排序修复后历史归档仍旧序的真实根因）
+    let fingerprint = dir_fingerprint(&state.content_root, &dir_rel).await;
     let cached = state.cache.lookup_tree(&dir_key);
     let json = match (cached, dir_mtime) {
-        (Some(c), Some(mtime)) if !tree_stale(&state, &dir_key, mtime) => c,
+        (Some(c), Some(mtime)) if !tree_stale(&state, &dir_key, mtime, fingerprint) => c,
         _ => {
             // 重建：build_subtree(expand_depth + 1)
             let nodes = build_subtree(
@@ -92,10 +96,13 @@ pub async fn tree_children(
             );
             let json = json!({"path": decoded, "children": nodes}).to_string();
             if let Some(mtime) = dir_mtime {
-                let _ = state.cache.store_tree(&dir_key, mtime, &json).map_err(|e| {
-                    info!(%e, "树缓存写入失败，服务继续");
-                    e
-                });
+                let _ = state
+                    .cache
+                    .store_tree(&dir_key, mtime, fingerprint, &json)
+                    .map_err(|e| {
+                        info!(%e, "树缓存写入失败，服务继续");
+                        e
+                    });
             }
             json
         }
@@ -139,15 +146,47 @@ pub async fn tree_children(
 
 /// 树条目是否过期（树查目录自身 mtime）。
 /// 内存条目记录的 mtime 与请求时 stat 到的目录 mtime 不一致 → stale 重建。
-fn tree_stale(state: &Arc<AppState>, dir_key: &str, current_mtime: std::time::SystemTime) -> bool {
-    match state.cache.lookup_tree_mtime_ms(dir_key) {
+/// 目录直接子项（文件+子目录）的 mtime+size 聚合和：内容变化
+/// （如 backfill 写入 date）会改变子文件 mtime → 指纹变化 → 树缓存失效。
+async fn dir_fingerprint(root: &std::path::Path, dir_rel: &std::path::Path) -> u64 {
+    let abs = root.join(dir_rel);
+    let mut fp: u64 = 0;
+    if let Ok(mut rd) = tokio::fs::read_dir(&abs).await {
+        while let Ok(Some(entry)) = rd.next_entry().await {
+            if let Ok(meta) = entry.metadata().await {
+                let mtime = meta
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(0);
+                fp = fp.wrapping_add(mtime.wrapping_mul(31));
+                fp = fp.wrapping_add(meta.len().wrapping_mul(97));
+            }
+        }
+    }
+    // 聚合用加法（交换律），条目顺序不影响结果；子项集合或任一
+    // mtime/size 变化都会改变指纹
+    fp
+}
+
+fn tree_stale(
+    state: &Arc<AppState>,
+    dir_key: &str,
+    current_mtime: std::time::SystemTime,
+    current_fp: u64,
+) -> bool {
+    match state.cache.lookup_tree_entry(dir_key) {
         None => true,
-        Some(recorded_ms) => {
+        Some(entry) => {
+            if entry.fingerprint != current_fp {
+                return true;
+            }
             let current_ms = current_mtime
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_millis() as u64)
                 .unwrap_or(0);
-            recorded_ms != current_ms
+            entry.mtime_ms != current_ms
         }
     }
 }
