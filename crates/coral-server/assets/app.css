@@ -363,8 +363,11 @@ ul.children li::before { content: "▸ "; color: var(--text-2); }
 .toc-title { font-weight: 600; color: var(--text-1); }
 .toc-collapse, .toc-expand {
   border: 1px solid var(--border); background: var(--bg); color: var(--text-2);
-  border-radius: 6px; padding: 4px 6px; cursor: pointer; line-height: 0;
+  border-radius: 6px; padding: 0; width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; line-height: 0; flex-shrink: 0;
 }
+.toc-collapse[hidden], .toc-expand[hidden] { display: none; }
 .toc-collapse:hover, .toc-expand:hover { color: var(--brand); border-color: var(--brand); }
 .toc-collapse svg, .toc-expand svg { width: 14px; height: 14px; }
 /* 层级缩进 + 参考线（对齐左菜单） */
@@ -376,15 +379,10 @@ ul.children li::before { content: "▸ "; color: var(--text-2); }
 .toc-item.toc-active-line { box-shadow: inset 2px 0 0 var(--brand); }
 .toc-l3 { padding-left: 32px; }
 .toc-l2 { padding-left: 20px; }
-/* 收起态：toc 隐藏，贴边展开按钮（fixed 不随滚动） */
-.page-body.toc-collapsed .toc { display: none; }
-.toc-expand {
-  position: fixed; right: 12px; top: 50vh; transform: translateY(-50%);
-  z-index: 15; display: flex; align-items: center; justify-content: center;
-  width: 32px; height: 44px; border-radius: 8px;
-  box-shadow: 0 1px 4px var(--shadow);
-}
-.toc-expand[hidden] { display: none; }
+/* 收起态：仅保留头部展开按钮（与收起按钮同位），正文回收剩余宽度 */
+.page-body.toc-collapsed .toc { width: auto; }
+.page-body.toc-collapsed .toc-title,
+.page-body.toc-collapsed .toc-nav { display: none; }
 
 /* ===== 上下篇 / 最后更新 / 错误页 ===== */
 .pager {

@@ -208,7 +208,9 @@ async function ensureChildren(childrenEl, node) {
   spinner.className = 'tree-spinner';
   childrenEl.appendChild(spinner);
   try {
-    const res = await fetch('/api/tree/children?path=' + encodeURIComponent(dirUrl));
+    // cache:'no-cache' 请求级强制协商：旧缓存条目（无 no-cache 头）在启发式
+    // 缓存期内不验证，排序变化后用户看到旧树（M2 实际踩坑）
+    const res = await fetch('/api/tree/children?path=' + encodeURIComponent(dirUrl), { cache: 'no-cache' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     loadedDirs.set(dirUrl, data.children);
@@ -467,6 +469,7 @@ if (tocItems.length > 0) {
   const applyTocState = (collapsed) => {
     pageBody.classList.toggle('toc-collapsed', collapsed);
     expandBtn.hidden = !collapsed;
+    collapseBtn.hidden = collapsed;
   };
   applyTocState(localStorage.getItem('coral-toc-collapsed') === '1');
   collapseBtn?.addEventListener('click', () => {
