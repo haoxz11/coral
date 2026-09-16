@@ -508,6 +508,45 @@ fn test_single_index_dir_downgrades_to_leaf() {
 }
 
 #[test]
+fn test_empty_dir_hidden_but_path_node_kept() {
+    // M2：真空目录（子树无任何可见 md）不进树；中间无 md 目录因后代
+    // 有内容保留为路径节点；draft 全排除后子树变空同样隐藏
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    std::fs::write(root.join("_index.md"), "---\ntitle: 根\n---\n").unwrap();
+    // 真空目录
+    std::fs::create_dir_all(root.join("void")).unwrap();
+    // 路径节点：a 无 md，后代 b 有
+    std::fs::create_dir_all(root.join("a/b")).unwrap();
+    std::fs::write(root.join("a/b/page.md"), "---\ntitle: P\n---\n").unwrap();
+    // draft 全排除后变空
+    std::fs::create_dir_all(root.join("drafty")).unwrap();
+    std::fs::write(
+        root.join("drafty/d.md"),
+        "---\ntitle: D\ndraft: true\n---\n",
+    )
+    .unwrap();
+    let cfg = ContentConfig {
+        root: root.to_path_buf(),
+        exclude: vec![],
+        draft: false,
+    };
+    let result = scan(&cfg).unwrap();
+    let index = SiteIndex::build(result, false);
+    let nodes = build_subtree(&index, Path::new(""), 4, false);
+    let titles: Vec<&str> = nodes.iter().map(|n| n.title.as_str()).collect();
+    assert!(!titles.contains(&"void"), "真空目录应隐藏：{titles:?}");
+    assert!(titles.contains(&"a"), "路径节点应保留：{titles:?}");
+    assert!(
+        !titles.contains(&"drafty"),
+        "draft 全排除变空应隐藏：{titles:?}"
+    );
+    // a 可达 b
+    let a = nodes.iter().find(|n| n.title == "a").unwrap();
+    assert!(a.children.iter().any(|c| c.title == "b"));
+}
+
+#[test]
 fn test_symlink_in_root_followed_escape_rejected() {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("content");

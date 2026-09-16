@@ -121,6 +121,11 @@ pub fn build_subtree(
         let Some(child_dm) = index.dirs.get(child_dir) else {
             continue;
         };
+        // 真空目录不进树（M2）：子树内无任何可见 md——树上是无导航
+        // 价值的死节点；中间目录因后代有内容仍保留（路径节点）
+        if !subtree_has_visible_md(index, child_dm, draft_enabled) {
+            continue;
+        }
         // draft 排除的 _index.md：目录仍保留在树中（命名结构），但标题回退目录名
         let branch_excluded = child_dm
             .branch_page
@@ -211,6 +216,29 @@ pub fn build_subtree(
 
     nodes.sort_by(|a, b| compare_keys(&a.1, &b.1));
     nodes.into_iter().map(|(n, _)| n).collect()
+}
+
+/// 目录子树内是否有任何可见 md（递归，M2）：分支页、直接子文档、
+/// 或任一后代目录子树有内容。真空目录（全无）在树构建时跳过——
+/// 死节点无导航价值；中间无 md 的目录因后代有内容保留为路径节点。
+fn subtree_has_visible_md(index: &SiteIndex, dm: &DirMeta, draft_enabled: bool) -> bool {
+    if dm.branch_page.is_some() {
+        return true;
+    }
+    // 直接子文档：仅 draft 排除语义（child_pages 本就不含分支页）
+    if dm.child_pages.iter().any(|p| {
+        index
+            .pages
+            .get(p)
+            .is_none_or(|pg| !is_draft_excluded(&pg.fm, draft_enabled))
+    }) {
+        return true;
+    }
+    // 后代目录递归
+    dm.child_dirs
+        .iter()
+        .filter_map(|d| index.dirs.get(d))
+        .any(|cdm| subtree_has_visible_md(index, cdm, draft_enabled))
 }
 
 /// 目录是否有任何可见子项（有子目录或未 draft 排除的子文档；用于 has_children）。
