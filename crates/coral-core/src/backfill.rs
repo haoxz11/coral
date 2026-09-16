@@ -42,7 +42,7 @@ pub fn backfill_date(root: &Path, force: bool, all: bool) -> std::io::Result<Bac
             continue; // 读失败跳过（不中断批处理）
         };
         // 时间来源：git 最后提交时间 > mtime 兜底
-        let (date, from_mtime) = match repo.as_ref().and_then(|r| git_last_commit(r, &file)) {
+        let (date, from_mtime) = match repo.as_ref().and_then(|r| git_first_commit(r, &file)) {
             Some(git_time) => (normalize_git_time(&git_time), false),
             None => (file_mtime(&file)?, true),
         };
@@ -165,14 +165,17 @@ fn read_file(path: &Path) -> std::io::Result<String> {
     std::fs::read_to_string(path)
 }
 
-fn git_last_commit(repo: &Path, file: &Path) -> Option<String> {
+/// 最早提交时间（文件首次 add 的提交，M2 用户决策）：同批"顺手修改"会
+/// 把末次提交时间刷成一致，掩盖文件本来的先后；首提时间代表诞生时刻。
+fn git_first_commit(repo: &Path, file: &Path) -> Option<String> {
     let rel = file.strip_prefix(repo).ok()?;
     let out = std::process::Command::new("git")
         .arg("-C")
         .arg(repo)
         .arg("log")
-        .arg("-1")
+        .arg("--diff-filter=A") // 仅该文件被新增的提交
         .arg("--format=%ci")
+        .arg("--reverse") // 时间正序，首行 = 最早
         .arg("--")
         .arg(rel)
         .output()
@@ -180,8 +183,12 @@ fn git_last_commit(repo: &Path, file: &Path) -> Option<String> {
     if !out.status.success() {
         return None;
     }
-    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    (!s.is_empty()).then_some(s)
+    let first = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .next()?
+        .trim()
+        .to_string();
+    (!first.is_empty()).then_some(first)
 }
 
 /// `2026-09-01 13:44:06 +0800` → `2026-09-01 13:44:06`。
