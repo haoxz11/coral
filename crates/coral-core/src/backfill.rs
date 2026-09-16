@@ -11,6 +11,16 @@
 
 use std::path::{Path, PathBuf};
 
+/// git 时间来源（M2 用户最终决策：默认最后提交时间，可切换最早）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DateSource {
+    /// 最早提交时间（文件首次 add 的提交，诞生时刻）
+    First,
+    /// 最后提交时间（默认；最近一次触及该文件的提交）
+    #[default]
+    Last,
+}
+
 /// 执行结果统计。
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct BackfillReport {
@@ -25,7 +35,12 @@ pub struct BackfillReport {
 }
 
 /// 对 root 下 .md 执行 backfill（M2 最终语义见模块注释）。
-pub fn backfill_date(root: &Path, force: bool, all: bool) -> std::io::Result<BackfillReport> {
+pub fn backfill_date(
+    root: &Path,
+    force: bool,
+    all: bool,
+    source: DateSource,
+) -> std::io::Result<BackfillReport> {
     let mut report = BackfillReport::default();
     let repo = find_git_root(root);
     // 待处理文件集：git 默认模式=工作区变更；其余=全部 md
@@ -41,8 +56,11 @@ pub fn backfill_date(root: &Path, force: bool, all: bool) -> std::io::Result<Bac
         let Ok(raw) = read_file(&file) else {
             continue; // 读失败跳过（不中断批处理）
         };
-        // 时间来源：git 最后提交时间 > mtime 兜底
-        let (date, from_mtime) = match repo.as_ref().and_then(|r| git_first_commit(r, &file)) {
+        // 时间来源：git 提交时间（来源可配）> mtime 兜底
+        let (date, from_mtime) = match repo
+            .as_ref()
+            .and_then(|r| git_commit_time(r, &file, source))
+        {
             Some(git_time) => (normalize_git_time(&git_time), false),
             None => (file_mtime(&file)?, true),
         };
@@ -165,21 +183,23 @@ fn read_file(path: &Path) -> std::io::Result<String> {
     std::fs::read_to_string(path)
 }
 
-/// 最早提交时间（文件首次 add 的提交，M2 用户决策）：同批"顺手修改"会
-/// 把末次提交时间刷成一致，掩盖文件本来的先后；首提时间代表诞生时刻。
-fn git_first_commit(repo: &Path, file: &Path) -> Option<String> {
+/// git 提交时间（来源可配，M2 用户最终决策）：First = 首次 add 的提交
+/// （诞生时刻；同批修改会刷末次时间，首提反映真实先后）；Last = 最后
+/// 一次触及该文件的提交（默认；内容最近变更时刻）。
+fn git_commit_time(repo: &Path, file: &Path, source: DateSource) -> Option<String> {
     let rel = file.strip_prefix(repo).ok()?;
-    let out = std::process::Command::new("git")
-        .arg("-C")
-        .arg(repo)
-        .arg("log")
-        .arg("--diff-filter=A") // 仅该文件被新增的提交
-        .arg("--format=%ci")
-        .arg("--reverse") // 时间正序，首行 = 最早
-        .arg("--")
-        .arg(rel)
-        .output()
-        .ok()?;
+    let mut cmd = std::process::Command::new("git");
+    cmd.arg("-C").arg(repo).arg("log").arg("--format=%ci");
+    match source {
+        DateSource::First => {
+            cmd.arg("--diff-filter=A").arg("--reverse"); // 时间正序，首行 = 最早
+        }
+        DateSource::Last => {
+            cmd.arg("-1"); // 最近一次
+        }
+    }
+    cmd.arg("--").arg(rel); // pathspec 必须在 -- 之后（选项之前），否则被吞为路径
+    let out = cmd.output().ok()?;
     if !out.status.success() {
         return None;
     }

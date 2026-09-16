@@ -60,6 +60,10 @@ struct Args {
     /// 与 --backfill-date 配合：处理全部文件（git 模式默认只处理工作区变更）
     #[arg(long, requires = "backfill_date")]
     all: bool,
+
+    /// 与 --backfill-date 配合：git 时间来源（first=最早提交时间，last=最后提交时间，默认 last）
+    #[arg(long, requires = "backfill_date", value_parser = ["first", "last"], default_value = "last")]
+    date_source: String,
 }
 
 /// args → 配置（R6：纯函数便于参数矩阵单测）。
@@ -174,7 +178,11 @@ async fn run() -> Result<()> {
         let root = root
             .canonicalize()
             .with_context(|| format!("--backfill-date 目录不存在：{}", root.display()))?;
-        let report = coral_core::backfill::backfill_date(&root, args.force, args.all)?;
+        let source = match args.date_source.as_str() {
+            "first" => coral_core::backfill::DateSource::First,
+            _ => coral_core::backfill::DateSource::Last,
+        };
+        let report = coral_core::backfill::backfill_date(&root, args.force, args.all, source)?;
         println!(
             "backfill-date 完成：补齐 {}（其中 mtime 回填 {}），跳过（已有 date）{}，替换（--force）{}",
             report.filled, report.mtime_filled, report.skipped_has_date, report.replaced

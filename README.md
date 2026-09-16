@@ -110,6 +110,7 @@ coral [选项]
 | `--backfill-date <dir>` | 一次性维护命令：把文件的可靠时间写入 Markdown 的 front matter `date` 字段（执行后退出，不启动服务；详见下文） |
 | `--force` | 与 `--backfill-date` 配合：已有 `date` 的文件也替换（默认只补齐无值的） |
 | `--all` | 与 `--backfill-date` 配合：处理目录下全部文件（git 模式默认只处理工作区有变更的文件） |
+| `--date-source <first\|last>` | 与 `--backfill-date` 配合：git 时间来源，`last` = 最后提交时间（**默认**），`first` = 最早提交时间（文件首次入库） |
 | `-v` / `-V` / `--version` | 输出版本号并退出 |
 
 典型用法：
@@ -130,19 +131,20 @@ coral --backfill-date ./content              # git 仓库：只处理工作区�
 coral --backfill-date ./content --all        # 处理目录下全部 md
 coral --backfill-date ./content --force      # 已有 date 的文件也替换（默认跳过）
 coral --backfill-date ./content --all --force  # 组合使用
+coral --backfill-date ./content --date-source first  # 用最早提交时间（默认 last）
 ```
 
 时间来源规则：
 
 | 场景 | 默认（不加 `--all`） | 加 `--all` |
 |---|---|---|
-| git 仓库 | 只处理**工作区有变更**的文件（改过的/待提交的/新文件）：改过的用 **git 最早提交时间**（文件首次入库的时刻），新文件用文件修改时间 | 全部 md：已提交的用 git 最早提交时间，未提交的用文件修改时间 |
+| git 仓库 | 只处理**工作区有变更**的文件（改过的/待提交的/新文件）：改过的用 git 提交时间（`--date-source` 可选，默认最后提交时间，`first` 为最早提交时间），新文件用文件修改时间 | 全部 md：同左 |
 | 非 git 目录 | 全部 md 用文件修改时间（`--all` 无区别） | 同左 |
 
 说明：
 
 - 只处理 `.md` 文件；无 front matter 块的文件会自动创建（只含 `date`）
-- git 最早提交时间（文件首次入库）比文件修改时间和最后提交时间都可靠：git 同步/rsync 会把修改时间刷成同一时刻；批量提交又会把最后提交时间刷成同一时刻，而首次入库时间代表文件诞生的先后
+- 时间来源的选择：文件修改时间会被 git 同步/rsync 刷成同一时刻，不可靠；git 提交时间可靠，但注意**批量提交会把一批文件的最后提交时间刷成一致**（无法区分批内先后），此时用 `--date-source first`（最早提交时间 = 文件首次入库）可反映真实诞生顺序
 - 执行后**需要重启 Coral 服务**才在目录树排序中生效（树缓存按目录变化判断过期，不感知文件内容变化）
 - 命令输出统计：补齐多少（其中用文件修改时间回填多少）、跳过多少（已有 date）、替换多少（`--force`）
 
