@@ -154,7 +154,9 @@ function makeNode(node) {
     });
     if (node.has_index) {
       row.classList.add('navigable');
-      row.addEventListener('click', () => {
+      // 仅菜单文字触发导航（M2 用户决策）：图标/行内空白点击不导航
+      // 不绑定 row 级监听——箭头之外的区域点击无动作
+      row.querySelector('.tree-label').addEventListener('click', () => {
         location.href = encodeURI(normalizeUrl(node.url));
       });
     } else {

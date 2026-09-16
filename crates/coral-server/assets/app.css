@@ -171,8 +171,8 @@ html[data-theme="dark"] .theme-switch-check { transform: translateX(18px); }
   content: ""; position: absolute; left: -8px; top: -6px;
   width: 20px; height: 32px;
 }
-.tree-node.navigable { cursor: pointer; }
-.tree-node.navigable:hover .tree-label { color: var(--brand); }
+.tree-node.navigable .tree-label { cursor: pointer; }
+.tree-node.navigable .tree-label:hover { color: var(--brand); }
 .tree-node.expanded .tree-arrow { transform: rotate(90deg); }
 .tree-node.leaf .tree-arrow { visibility: hidden; }
 /* 提高优先级压过 .tree ul 的 margin/padding 清零（否则缩进不生效） */
