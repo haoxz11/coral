@@ -56,6 +56,10 @@ struct Args {
     /// 与 --backfill-date 配合：已有 date 也替换
     #[arg(long, requires = "backfill_date")]
     force: bool,
+
+    /// 与 --backfill-date 配合：处理全部文件（git 模式默认只处理工作区变更）
+    #[arg(long, requires = "backfill_date")]
+    all: bool,
 }
 
 /// args → 配置（R6：纯函数便于参数矩阵单测）。
@@ -170,10 +174,10 @@ async fn run() -> Result<()> {
         let root = root
             .canonicalize()
             .with_context(|| format!("--backfill-date 目录不存在：{}", root.display()))?;
-        let report = coral_core::backfill::backfill_date(&root, args.force)?;
+        let report = coral_core::backfill::backfill_date(&root, args.force, args.all)?;
         println!(
-            "backfill-date 完成：补齐 {}，跳过（已有 date）{}，替换（--force）{}，无 git 历史 {}",
-            report.filled, report.skipped_has_date, report.replaced, report.no_history
+            "backfill-date 完成：补齐 {}（其中 mtime 回填 {}），跳过（已有 date）{}，替换（--force）{}",
+            report.filled, report.mtime_filled, report.skipped_has_date, report.replaced
         );
         return Ok(());
     }
