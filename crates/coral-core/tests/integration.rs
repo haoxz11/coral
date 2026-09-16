@@ -5,7 +5,7 @@
 
 use coral_core::config::ContentConfig;
 use coral_core::scanner::{SiteIndex, scan};
-use coral_core::tree::build_subtree;
+use coral_core::tree::{NodeType, build_subtree};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
@@ -459,6 +459,51 @@ fn test_permalink_conflict_older_date_wins_and_loser_falls_back() {
     assert_eq!(
         index.permalinks.get("/kun/face/verify"),
         Some(&PathBuf::from("old.md"))
+    );
+}
+
+#[test]
+fn test_single_index_dir_downgrades_to_leaf() {
+    // M2 用户决策：有分支页（回退链任一）且无其他可见子项的目录 → leaf（可点击）；
+    // 多子项目录仍 branch；无首页空目录仍 branch
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    std::fs::write(root.join("_index.md"), "---\ntitle: 根\n---\n").unwrap();
+    std::fs::create_dir_all(root.join("single")).unwrap();
+    std::fs::write(root.join("single/_index.md"), "---\ntitle: 单页目录\n---\n").unwrap();
+    std::fs::create_dir_all(root.join("multi")).unwrap();
+    std::fs::write(root.join("multi/_index.md"), "---\ntitle: 多页\n---\n").unwrap();
+    std::fs::write(root.join("multi/a.md"), "---\ntitle: A\n---\n").unwrap();
+    std::fs::create_dir_all(root.join("empty")).unwrap();
+    let cfg = ContentConfig {
+        root: root.to_path_buf(),
+        exclude: vec![],
+        draft: false,
+    };
+    let result = scan(&cfg).unwrap();
+    let index = SiteIndex::build(result, false);
+    let nodes = build_subtree(&index, Path::new(""), 2, false);
+    let find = |t: &str| {
+        nodes
+            .iter()
+            .find(|n| n.title == t)
+            .unwrap_or_else(|| panic!("缺 {t}"))
+    };
+    assert_eq!(
+        find("单页目录").node_type,
+        NodeType::Leaf,
+        "单首页目录应为 leaf"
+    );
+    assert!(!find("单页目录").has_children);
+    assert_eq!(
+        find("多页").node_type,
+        NodeType::Branch,
+        "多子项目录仍为 branch"
+    );
+    assert_eq!(
+        find("empty").node_type,
+        NodeType::Branch,
+        "无首页空目录仍为 branch（无导航目标）"
     );
 }
 

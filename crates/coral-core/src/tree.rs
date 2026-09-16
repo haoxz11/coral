@@ -150,7 +150,17 @@ pub fn build_subtree(
                 } else {
                     child_dm.icon.clone()
                 },
-                node_type: NodeType::Branch,
+                // 单首页目录降级为 leaf（M2 用户决策）：有分支页（回退链任一命中）
+                // 且除分支页外无其他可见子项——树上可点击进首页、无展开箭头；
+                // 无分支页的空目录仍为 branch（无首页可导航，仅作分组）
+                node_type: {
+                    let has_kids = dir_has_visible_children(index, child_dm, draft_enabled);
+                    if !has_kids && child_dm.branch_page.is_some() {
+                        NodeType::Leaf
+                    } else {
+                        NodeType::Branch
+                    }
+                },
                 has_children: dir_has_visible_children(index, child_dm, draft_enabled),
                 children: build_subtree(index, child_dir, depth - 1, draft_enabled),
             },
