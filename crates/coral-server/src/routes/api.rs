@@ -123,6 +123,10 @@ pub async fn tree_children(
                 header::ETAG,
                 HeaderValue::from_str(&etag).expect("etag 可解析"),
             ),
+            // 无 Cache-Control 时浏览器启发式缓存会绕过 ETag 验证直接用旧
+            // JSON（树排序变化后用户看不到新序，M2 实际踩坑）；no-cache 强制
+            // 每次协商——内容未变仍 304 省流量
+            (header::CACHE_CONTROL, HeaderValue::from_static("no-cache")),
             (
                 header::CONTENT_TYPE,
                 HeaderValue::from_static("application/json"),
