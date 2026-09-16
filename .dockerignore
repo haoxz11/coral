@@ -2,9 +2,9 @@
 target/*
 !target/x86_64-unknown-linux-gnu
 target/x86_64-unknown-linux-gnu/*
-!target/x86_64-unknown-linux-gnu/release
-target/x86_64-unknown-linux-gnu/release/*
-!target/x86_64-unknown-linux-gnu/release/coral
+!target/x86_64-unknown-linux-gnu/dist
+target/x86_64-unknown-linux-gnu/dist/*
+!target/x86_64-unknown-linux-gnu/dist/coral
 cache/
 .git/
 .trellis/
