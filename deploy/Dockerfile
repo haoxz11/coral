@@ -20,7 +20,7 @@ RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g; s|security.debian.org|mirrors
     && apt-get update \
     && apt-get install -y --no-install-recommends openssh-client ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-COPY target/${TARGET_TRIPLE}/release/coral /coral
+COPY target/${TARGET_TRIPLE}/dist/coral /coral
 # 容器默认配置路径；实际部署用 configMap 挂载覆盖
 ENV CORAL_CONFIG=/etc/coral/coral.toml
 ENTRYPOINT ["/coral"]

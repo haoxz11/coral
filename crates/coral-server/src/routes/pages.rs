@@ -110,7 +110,7 @@ async fn serve_page(state: &Arc<AppState>, raw_path: &str) -> Response {
                 .and_then(crate::templates::parse_home_action);
             (blocks, cards, primary)
         };
-        let (primary_url, primary_text) = primary.unwrap_or_default();
+        let (primary_text, primary_url) = primary.unwrap_or_default();
         let tpl = crate::templates::HomeTpl {
             site_title: site_title(&index),
             initial_tree_json: "[]".to_string(),

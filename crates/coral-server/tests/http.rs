@@ -936,3 +936,39 @@ async fn reqwest_shim_post_auth(
 ) -> (StatusCode, String) {
     http_post(base, path, body, Some(token)).await
 }
+
+#[tokio::test]
+async fn test_home_primary_action_text_and_href_not_swapped() {
+    // archetype=home 主按钮：url 字段是标准 markdown 链接 `[文案](地址)`，
+    // 渲染后 href=地址、按钮文案=文案（回归：两者不得对调）
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("content");
+    std::fs::create_dir_all(root.join("guide")).unwrap();
+    std::fs::write(
+        root.join("_index.md"),
+        "---\ntitle: 门户\narchetype: home\nurl: \"[快速开始](/guide/intro)\"\n---\n## 海纳\n描述",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("guide/_index.md"),
+        "---\ntitle: 指南\n---\n指南正文",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("guide/intro.md"),
+        "---\ntitle: 入门\n---\n入门正文",
+    )
+    .unwrap();
+    let app = make_app(make_config(root.clone(), &[], false)).await;
+
+    let (s, _, b) = get(&app, "/").await;
+    assert_eq!(s, StatusCode::OK);
+    let html = String::from_utf8(b).unwrap();
+    assert!(
+        html.contains("<a class=\"home-btn-primary\" href=\"/guide/intro\">快速开始</a>"),
+        "主按钮应为 href=/guide/intro、文案=快速开始，实际：{}",
+        html.lines()
+            .find(|l| l.contains("home-btn-primary"))
+            .unwrap_or("<未找到>")
+    );
+}
