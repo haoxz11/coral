@@ -20,7 +20,8 @@ use tracing::warn;
 /// v7：站内静态文件链接（带扩展名）加 target=_blank 新开页。
 /// v8：相对链接（a/img）服务端重写为以源文件目录为基准的绝对路径（permalink 解耦）。
 /// v9：前端 app.js 变更（iconify 兜底标记改轮询）——缓存页内嵌旧 JS hash 需重渲。
-pub const MANIFEST_VERSION: u32 = 9;
+/// v10：前端变更（iconify 兜底轮询加密前段 + CSS 淡出）——同 v9 理由。
+pub const MANIFEST_VERSION: u32 = 10;
 
 /// 缓存操作错误。`Corrupt` 由调用方降级为 miss，绝不映射 500。
 #[derive(Debug, thiserror::Error)]

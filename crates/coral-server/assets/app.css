@@ -333,7 +333,10 @@ iconify-icon.tree-icon:not([data-iconified]) {
   display: inline-block; width: 16px; height: 16px; min-width: 16px;
   border-radius: 50%;
   background: color-mix(in srgb, currentColor 35%, transparent);
+  transition: opacity 0.15s;
 }
+/* 图标渲染成功后圆点淡出，避免与图标叠显 */
+iconify-icon.tree-icon[data-iconified] { background: none; opacity: 1; }
 /* 程度色映射（important/danger/error 同红系） */
 .notice-tip { --nc: var(--n-tip); --nc-bg: var(--n-tip-bg); --n-icon: "💡"; }
 .notice-info { --nc: var(--n-info); --nc-bg: var(--n-info-bg); --n-icon: "ℹ"; }

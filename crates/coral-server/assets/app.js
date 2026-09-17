@@ -931,8 +931,9 @@ if (renderCfgMeta) {
 // ===== iconify 树图标渲染成功标记 =====
 // 兜底样式（圆点占位）由 CSS :not([data-iconified]) 提供；
 // 图标渲染成功后元素获得 data-iconified，兜底样式失效、SVG 正常显示。
-// 注意：iconify 的 SVG 渲染进 shadow DOM，不触发 body mutation 事件，
-// MutationObserver 打不到标——必须轮询检测（懒加载树节点会持续新增元素）
+// 组件无状态变化事件、SVG 渲染进 shadow DOM 不触发 body mutation——只能轮询。
+// 前密后疏：前 3s 每 100ms（图标加载完成即时翻转，视觉无感知延迟），
+// 之后 1s 兜懒加载新增树节点，30s 稳态停表
 const markIconified = () => {
   document.querySelectorAll('iconify-icon.tree-icon:not([data-iconified])').forEach((el) => {
     if (el.shadowRoot && el.shadowRoot.querySelector('svg')) {
@@ -940,5 +941,14 @@ const markIconified = () => {
     }
   });
 };
-setInterval(markIconified, 800);
+let elapsed = 0;
+const poll = setInterval(() => {
+  markIconified();
+  elapsed += 1;
+  if (elapsed === 30) clearInterval(poll);
+}, 100);
+setTimeout(() => {
+  clearInterval(poll);
+  setInterval(markIconified, 1000);
+}, 3000);
 markIconified();
