@@ -93,7 +93,7 @@ fn mime_for(ext: Option<&str>) -> &'static str {
         Some("html") | Some("htm") => "text/html; charset=utf-8",
         Some("js") => "text/javascript; charset=utf-8",
         Some("json") => "application/json",
-        Some("txt") | Some("md5") => "text/plain; charset=utf-8",
+        Some("txt") | Some("md5") | Some("sql") => "text/plain; charset=utf-8",
         Some("pdf") => "application/pdf",
         Some("woff") => "font/woff",
         Some("woff2") => "font/woff2",

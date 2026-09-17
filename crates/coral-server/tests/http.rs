@@ -67,6 +67,7 @@ fn make_content() -> (tempfile::TempDir, PathBuf) {
     std::fs::write(root.join("docs/img.png"), "png-bytes").unwrap();
     std::fs::write(root.join("docs/page.html"), "<p>html 展示</p>").unwrap();
     std::fs::write(root.join("docs/report.pdf"), "%pdf-bytes").unwrap();
+    std::fs::write(root.join("docs/query.sql"), "SELECT 1;").unwrap();
     std::fs::write(root.join(".hidden/secret.md"), "隐藏").unwrap();
     (tmp, root)
 }
@@ -396,6 +397,11 @@ async fn test_static_asset_mime_and_immutable() {
     assert_eq!(status, StatusCode::OK);
     let ct = headers.iter().find(|(k, _)| k == "content-type").unwrap();
     assert_eq!(ct.1, "application/pdf");
+    // sql 文本展示
+    let (status, headers, _) = get(&app, "/docs/query.sql").await;
+    assert_eq!(status, StatusCode::OK);
+    let ct = headers.iter().find(|(k, _)| k == "content-type").unwrap();
+    assert_eq!(ct.1, "text/plain; charset=utf-8");
 
     // md 不走静态——页面路由正常处理
     let (status, _, _) = get(&app, "/guide/intro.md").await;

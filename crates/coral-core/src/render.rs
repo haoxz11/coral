@@ -138,31 +138,35 @@ fn render_markdown_text(text: &str) -> String {
     html
 }
 
-/// 外链新开页：非本站链接（http(s):// 绝对地址）在 HTML
-/// 输出后追加 `target="_blank" rel="noopener"`。comrak 无链接属性 adapter，
-/// 后处理基于其固定输出形态 `<a href="URL">` / `<a href="URL" title="T">`；
-/// href 已被 comrak 转义，URL 内不会出现裸 `>`，切分安全。
-/// 站内相对链接（`/` 开头）、页内锚点（`#`）、mailto 等非 http(s) 不动。
+/// 外链与站内文件链接新开页，在 HTML 输出后追加 `target="_blank" rel="noopener"`：
+/// - http(s):// 绝对地址（外链）
+/// - 站内 `/` 开头且最后一段含 `.` 的路径（非 md 静态文件，如 /docs/x.html——
+///   在当前页打开会替换掉正在阅读的文档页）
+///
+/// comrak 无链接属性 adapter，后处理基于其固定输出形态
+/// `<a href="URL">` / `<a href="URL" title="T">`；href 已被 comrak 转义，
+/// URL 内不会出现裸 `>`，切分安全。站内页面路由（无扩展名）、页内锚点
+/// （`#`）、mailto 等不动。
 fn mark_external_links(html: &str) -> String {
-    let needle = "<a href=\"http";
-    if !html.contains("http://") && !html.contains("https://") {
+    if !html.contains("http://") && !html.contains("https://") && !html.contains("<a href=\"/") {
         return html.to_string();
     }
-    // 逐个定位以 http 开头的 <a href，替换其开标签
+    // 逐个定位以 http 或站内 / 开头的 <a href，替换其开标签
     let mut result = String::with_capacity(html.len());
     let mut rest = html;
-    while let Some(pos) = rest.find(needle) {
+    while let Some(pos) = find_link_open(rest) {
         let (before, after) = rest.split_at(pos);
         result.push_str(before);
-        // after 以 <a href="http 开头；找开标签的结束 '>'
+        // after 以 <a href=" 开头；找开标签的结束 '>'
         let Some(gt_rel) = after.find('>') else {
             result.push_str(after);
             return result;
         };
         let open_tag = &after[..gt_rel]; // 如 <a href="https://x.com" title="t"
         let url = &open_tag[9..]; // 去掉 <a href="
-        let external = url.starts_with("https://") || url.starts_with("http://");
-        if external && !open_tag.contains("target=") {
+        let new_tab =
+            url.starts_with("https://") || url.starts_with("http://") || internal_file_link(url);
+        if new_tab && !open_tag.contains("target=") {
             result.push_str(open_tag);
             result.push_str(" target=\"_blank\" rel=\"noopener\""); // '>' 在下面补
             result.push('>');
@@ -174,6 +178,28 @@ fn mark_external_links(html: &str) -> String {
     }
     result.push_str(rest);
     result
+}
+
+/// 定位下一个待处理链接开标签：`<a href="http` 或 `<a href="/`。
+fn find_link_open(html: &str) -> Option<usize> {
+    let a = html.find("<a href=\"http");
+    let b = html.find("<a href=\"/");
+    match (a, b) {
+        (Some(x), Some(y)) => Some(x.min(y)),
+        (x, y) => x.or(y),
+    }
+}
+
+/// 站内文件链接：`/` 开头，最后一段（文件名）含 `.`——即带扩展名的静态资产；
+/// 页面路由无扩展名（/guide/intro）返回 false。`#` 锚点后缀先剥掉。
+fn internal_file_link(url: &str) -> bool {
+    let path = url.split('#').next().unwrap_or(url);
+    if !path.starts_with('/') {
+        return false;
+    }
+    path.rsplit('/')
+        .next()
+        .is_some_and(|last| last.contains('.'))
 }
 
 /// HTML 转义（未知语言代码块纯转义路径；math 模块复用）。
@@ -701,6 +727,51 @@ mod tests {
             out.contains(r##"<a href="mailto:a@b.c">邮件</a>"##),
             "{out}"
         );
+    }
+
+    #[test]
+    fn test_internal_file_links_get_target_blank() {
+        // 站内静态文件（带扩展名）新开页：当前页打开会替换掉正在阅读的文档页
+        let out = mark_external_links(
+            r##"<p><a href="/docs/x.html">html</a> <a href="/a/b.sql" title="t">sql</a> <a href="/img/p.png">图</a> <a href="/docs/x.html#sec">带锚点文件</a></p>"##,
+        );
+        assert!(
+            out.contains(r##"<a href="/docs/x.html" target="_blank" rel="noopener">html</a>"##),
+            "{out}"
+        );
+        assert!(
+            out.contains(
+                r##"<a href="/a/b.sql" title="t" target="_blank" rel="noopener">sql</a>"##
+            ),
+            "{out}"
+        );
+        assert!(
+            out.contains(r##"<a href="/img/p.png" target="_blank" rel="noopener">图</a>"##),
+            "{out}"
+        );
+        assert!(
+            out.contains(
+                r##"<a href="/docs/x.html#sec" target="_blank" rel="noopener">带锚点文件</a>"##
+            ),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn test_internal_page_links_stay_same_tab() {
+        // 站内页面路由（无扩展名）与纯锚点不动
+        let out = mark_external_links(
+            r##"<p><a href="/guide/intro">页面</a> <a href="/guide/intro#sec">页面锚点</a> <a href="/">首页</a></p>"##,
+        );
+        assert!(
+            out.contains(r##"<a href="/guide/intro">页面</a>"##),
+            "{out}"
+        );
+        assert!(
+            out.contains(r##"<a href="/guide/intro#sec">页面锚点</a>"##),
+            "{out}"
+        );
+        assert!(out.contains(r##"<a href="/">首页</a>"##), "{out}");
     }
 
     #[test]
