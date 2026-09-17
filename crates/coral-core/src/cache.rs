@@ -16,7 +16,8 @@ use tracing::warn;
 /// v2：notice 由 details 折叠改为 hint 形态。
 /// v4：math 围栏代码块由语法高亮代码块改为 katex 块级公式占位。
 /// v5：shortcode 预处理感知 fenced/行内代码——代码块内定界符透传不再展开。
-pub const MANIFEST_VERSION: u32 = 5;
+/// v6：notice 标题图标由 iconify 运行时组件改为构建期内联 SVG。
+pub const MANIFEST_VERSION: u32 = 6;
 
 /// 缓存操作错误。`Corrupt` 由调用方降级为 miss，绝不映射 500。
 #[derive(Debug, thiserror::Error)]

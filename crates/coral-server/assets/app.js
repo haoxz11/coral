@@ -927,3 +927,15 @@ if (renderCfgMeta) {
     document.head.appendChild(script);
   }
 }
+
+// ===== iconify 树图标渲染成功标记 =====
+// 兜底样式（圆点占位）由 CSS :not([data-iconified]) 提供；
+// 图标渲染成功后元素获得 data-iconified，兜底样式失效、SVG 正常显示
+const markIconified = () => {
+  document.querySelectorAll('iconify-icon.tree-icon:not([data-iconified])').forEach((el) => {
+    const ok = el.shadowRoot && el.shadowRoot.querySelector('svg');
+    if (ok) el.setAttribute('data-iconified', '');
+  });
+};
+new MutationObserver(markIconified).observe(document.body, { childList: true, subtree: true });
+markIconified();

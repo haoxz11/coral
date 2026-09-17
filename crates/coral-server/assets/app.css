@@ -322,12 +322,18 @@ html[data-theme="dark"] {
 }
 .notice p { margin: 0 0 8px; }
 .notice p:last-child { margin-bottom: 0; }
-/* 标题行：iconify 图标 + 粗体标题，与容器主题色同色 */
+/* 标题行：内联 SVG 图标 + 粗体标题，与容器主题色同色（currentColor 继承 --nc） */
 .notice-title {
   display: flex; align-items: center; gap: 8px;
   font-weight: 600; color: var(--nc); margin: 0 0 8px;
 }
-.notice-title iconify-icon { font-size: 18px; flex-shrink: 0; }
+.notice-title .notice-icon { width: 18px; height: 18px; flex-shrink: 0; }
+/* 树节点 iconify 图标加载失败兜底：空元素渲染为尺寸占位圆点，不再 0×0 空白 */
+iconify-icon.tree-icon:not([data-iconified]) {
+  display: inline-block; width: 16px; height: 16px; min-width: 16px;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 35%, transparent);
+}
 /* 程度色映射（important/danger/error 同红系） */
 .notice-tip { --nc: var(--n-tip); --nc-bg: var(--n-tip-bg); --n-icon: "💡"; }
 .notice-info { --nc: var(--n-info); --nc-bg: var(--n-info-bg); --n-icon: "ℹ"; }

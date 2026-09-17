@@ -493,18 +493,19 @@ mod tests {
 
     #[test]
     fn test_notice_with_title_details() {
-        // title 形态为标题行（iconify 图标+粗体），不用 details 折叠
+        // title 形态为标题行（内联 SVG 图标+粗体），不用 details 折叠
         let page = render(
             "{{% notice style=\"warning\" title=\"点击查看\" %}}**加粗**内容{{% /notice %}}",
             "x.md",
         );
         assert!(
-            page.html.contains(
-                "<div class=\"notice notice-warning\"><p class=\"notice-title\"><iconify-icon icon=\"fa-solid:triangle-exclamation\"></iconify-icon> 点击查看</p>"
-            ),
+            page.html
+                .contains("<div class=\"notice notice-warning\"><p class=\"notice-title\"><svg class=\"notice-icon\""),
             "{}",
             page.html
         );
+        // 内联 SVG 不依赖 iconify 运行时（内网/断网图标仍显示）
+        assert!(!page.html.contains("<iconify-icon"), "{}", page.html);
         assert!(
             page.html.contains("<strong>加粗</strong>"),
             "内层 markdown 渲染：{}",

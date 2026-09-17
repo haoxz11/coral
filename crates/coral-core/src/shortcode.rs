@@ -327,25 +327,55 @@ pub fn render_token(
                 });
             let body_html = token.body.as_deref().map(md).unwrap_or_default();
             // theme-hope hint 形态（始终展开，不用 details 折叠）：
-            // 内容始终展开；title 为标题行（iconify 图标 + 粗体同色标题，服务端渲染）
-            const ICONS: [(&str, &str); 8] = [
-                ("tip", "fa-solid:lightbulb"),
-                ("info", "fa-solid:circle-info"),
-                ("note", "fa-solid:circle-info"),
-                ("caution", "fa-solid:circle-exclamation"),
-                ("warning", "fa-solid:triangle-exclamation"),
-                ("important", "fa-solid:circle-exclamation"),
-                ("danger", "fa-solid:circle-exclamation"),
-                ("error", "fa-solid:circle-xmark"),
+            // 内容始终展开；title 为标题行（内联 SVG 图标 + 粗体同色标题，服务端渲染）。
+            // 图标为构建期内联 SVG（path 取自 fa6-solid），不依赖 iconify 运行时
+            // CDN——内网/受限网络下组件拉取图标数据失败会导致 0×0 空白
+            const ICONS: [(&str, &str, &str); 5] = [
+                // (style 图标键, viewBox, path d)
+                (
+                    "lightbulb",
+                    "0 0 384 512",
+                    "M272 384c9.6-31.9 29.5-59.1 49.2-86.2c5.2-7.1 10.4-14.2 15.4-21.4c19.8-28.5 31.4-63 31.4-100.3C368 78.8 289.2 0 192 0S16 78.8 16 176c0 37.3 11.6 71.9 31.4 100.3c5 7.2 10.2 14.3 15.4 21.4c19.8 27.1 39.7 54.4 49.2 86.2h160zm-80 128c44.2 0 80-35.8 80-80v-16H112v16c0 44.2 35.8 80 80 80m-80-336c0 8.8-7.2 16-16 16s-16-7.2-16-16c0-61.9 50.1-112 112-112c8.8 0 16 7.2 16 16s-7.2 16-16 16c-44.2 0-80 35.8-80 80",
+                ),
+                (
+                    "circle-info",
+                    "0 0 512 512",
+                    "M256 512a256 256 0 1 0 0-512a256 256 0 1 0 0 512m-40-176h24v-64h-24c-13.3 0-24-10.7-24-24s10.7-24 24-24h48c13.3 0 24 10.7 24 24v88h8c13.3 0 24 10.7 24 24s-10.7 24-24 24h-80c-13.3 0-24-10.7-24-24s10.7-24 24-24m40-208a32 32 0 1 1 0 64a32 32 0 1 1 0-64",
+                ),
+                (
+                    "circle-exclamation",
+                    "0 0 512 512",
+                    "M256 512a256 256 0 1 0 0-512a256 256 0 1 0 0 512m0-384c13.3 0 24 10.7 24 24v112c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24m-32 224a32 32 0 1 1 64 0a32 32 0 1 1-64 0",
+                ),
+                (
+                    "triangle-exclamation",
+                    "0 0 512 512",
+                    "M256 32c14.2 0 27.3 7.5 34.5 19.8l216 368c7.3 12.4 7.3 27.7.2 40.1S486.3 480 472 480H40c-14.3 0-27.6-7.7-34.7-20.1s-7-27.8.2-40.1l216-368C228.7 39.5 241.8 32 256 32m0 128c-13.3 0-24 10.7-24 24v112c0 13.3 10.7 24 24 24s24-10.7 24-24V184c0-13.3-10.7-24-24-24m32 224a32 32 0 1 0-64 0a32 32 0 1 0 64 0",
+                ),
+                (
+                    "circle-xmark",
+                    "0 0 512 512",
+                    "M256 512a256 256 0 1 0 0-512a256 256 0 1 0 0 512m-81-337c9.4-9.4 24.6-9.4 33.9 0l47 47l47-47c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-47 47l47 47c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-47-47l-47 47c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l47-47l-47-47c-9.4-9.4-9.4-24.6 0-33.9",
+                ),
             ];
-            let icon = ICONS
+            // style → 图标键（info/note 同款圆点 i；caution/important/danger 同款圆点叹号）
+            let icon_key = match style.as_str() {
+                "tip" => "lightbulb",
+                "caution" | "important" | "danger" => "circle-exclamation",
+                "warning" => "triangle-exclamation",
+                "error" => "circle-xmark",
+                _ => "circle-info", // info / note / 未识别回退
+            };
+            let (_, vb, d) = ICONS
                 .iter()
-                .find(|(k, _)| *k == style)
-                .map(|(_, i)| *i)
-                .unwrap_or("fa-solid:circle-info");
+                .find(|(k, _, _)| *k == icon_key)
+                .expect("icon_key 由 match 产生，必在 ICONS 表内");
+            let icon_svg = format!(
+                "<svg class=\"notice-icon\" viewBox=\"{vb}\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"{d}\"/></svg>"
+            );
             match title {
                 Some(title) => format!(
-                    "<div class=\"notice notice-{style}\"><p class=\"notice-title\"><iconify-icon icon=\"{icon}\"></iconify-icon> {title}</p>{body_html}</div>"
+                    "<div class=\"notice notice-{style}\"><p class=\"notice-title\">{icon_svg} {title}</p>{body_html}</div>"
                 ),
                 None => format!("<div class=\"notice notice-{style}\">{body_html}</div>"),
             }
