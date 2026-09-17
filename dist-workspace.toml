@@ -7,9 +7,7 @@ members = ["cargo:."]
 cargo-dist-version = "0.32.0"
 # CI backends to support
 ci = "github"
-# release.yml 已人工改名 .disabled 禁用自动发版（手工 dist.sh 发版流程），
-# dist build 不再校验/重生成该文件；重新启用自动发版时删除此行并恢复文件名
-allow-dirty = ["ci"]
+
 # The installers to generate for each app
 installers = ["shell", "homebrew"]
 # Homebrew tap 仓库（发版 CI 自动 push formula，需预先在 GitHub 建空仓库）
