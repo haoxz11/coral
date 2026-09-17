@@ -898,8 +898,11 @@ if (renderCfgMeta) {
   const mermaidBlocks = document.querySelectorAll('pre.mermaid');
   if (mermaidBlocks.length > 0 && mermaidCdn) {
     import(mermaidCdn)
-      .then((mod) => mod.default.initialize({ startOnLoad: false, securityLevel: 'strict' }))
-      .then((m) => m.run({ nodes: mermaidBlocks }))
+      .then((mod) => {
+        // mermaid.initialize() 返回 void，不能作为链式下一环的输入
+        mod.default.initialize({ startOnLoad: false, securityLevel: 'strict' });
+        return mod.default.run({ nodes: mermaidBlocks });
+      })
       .catch((e) => console.warn('mermaid 加载失败，保留原文显示', e));
   }
 
