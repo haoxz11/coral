@@ -36,3 +36,13 @@ fn main() {
 ## 未知
 
 {{% mermaid %}}graph A{{% /mermaid %}}
+
+## math 围栏
+
+```math {align="center"}
+$$\sigma = \sqrt{\frac{1}{N} \sum_{i=1}^{N} (x_i - \mu)^2}$$
+```
+
+```math
+E = mc^2
+```

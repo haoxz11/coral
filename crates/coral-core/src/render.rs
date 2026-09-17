@@ -183,6 +183,11 @@ pub(crate) fn escape_html(s: &str) -> String {
         .replace('>', "&gt;")
 }
 
+/// 围栏 info 首词（语言名）；`math {align="center"}` → `math`。
+fn lang_first_word(info_trimmed: &str) -> Option<&str> {
+    info_trimmed.split_whitespace().next()
+}
+
 /// 遍历 AST，把 fenced 代码块替换为高亮后的 HTML 块节点（服务端高亮）。
 ///
 /// 用 HtmlBlock 而非行内节点，避免块级结构错位。
@@ -201,6 +206,14 @@ fn rewrite_code_blocks<'a>(arena: &'a Arena<'a>, root: &'a AstNode<'a>) {
                         "<pre class=\"mermaid\">{}</pre>",
                         escape_html(code.trim_end_matches('\n'))
                     )
+                } else if lang_first_word(lang_trim) == Some("math") {
+                    // ```math 围栏（GitHub/Hugo 迁移文档形态）：走 katex 块级占位，
+                    // 前端 CDN 渲染；info 附加属性（如 {align="center"}）忽略
+                    let mut formula = code.trim();
+                    if formula.len() >= 4 && formula.starts_with("$$") && formula.ends_with("$$") {
+                        formula = formula[2..formula.len() - 2].trim();
+                    }
+                    crate::math::katex_block_html(formula)
                 } else {
                     match highlight::highlight_code(lang_trim, &code) {
                         Some(highlighted) => {
@@ -353,6 +366,53 @@ mod tests {
         let evil = render("```mermaid\ngraph <script>alert(1)</script>\n```\n", "x.md");
         assert!(evil.html.contains("&lt;script&gt;"), "{}", evil.html);
         assert!(!evil.html.contains("<script>alert"), "{}", evil.html);
+    }
+
+    #[test]
+    fn test_math_fence_placeholder() {
+        // GitHub/Hugo 迁移形态：$$ 括裹剥除后进 data-formula
+        let page = render("```math\n$$E = mc^2$$\n```\n", "x.md");
+        assert!(
+            page.html
+                .contains("katex-block\" data-formula=\"E = mc^2\""),
+            "math 围栏占位：{}",
+            page.html
+        );
+        // 裸公式（无 $$ 括裹）同样支持
+        let bare = render("```math\n\\sigma = \\sqrt{N}\n```\n", "x.md");
+        assert!(
+            bare.html.contains("data-formula=\"\\sigma = \\sqrt{N}\""),
+            "裸公式：{}",
+            bare.html
+        );
+    }
+
+    #[test]
+    fn test_math_fence_info_attributes_ignored() {
+        // info 首词识别，附加属性不参与
+        let page = render("```math {align=\"center\"}\n$$x^2$$\n```\n", "x.md");
+        assert!(
+            page.html.contains("data-formula=\"x^2\""),
+            "带属性 info：{}",
+            page.html
+        );
+        assert!(!page.html.contains("language-math"), "{}", page.html);
+    }
+
+    #[test]
+    fn test_math_fence_escapes_formula() {
+        // 安全红线：公式原文含 HTML/引号，属性侧必须转义（< → &lt;、" → &quot;）
+        let evil = render(
+            "```math\n$$a < b \" onmouseover=\"alert(1)$$\n```\n",
+            "x.md",
+        );
+        assert!(
+            evil.html
+                .contains("data-formula=\"a &lt; b &quot; onmouseover=&quot;alert(1)\""),
+            "属性转义：{}",
+            evil.html
+        );
+        assert!(!evil.html.contains("<script"), "{}", evil.html);
     }
 
     #[test]

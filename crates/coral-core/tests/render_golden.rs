@@ -63,6 +63,7 @@ fn test_golden_render_output_stable() {
             "2 代码高亮",
             "3 三级标题",
             "2 未知",
+            "2 math-围栏",
         ]
     );
     // 未知 shortcode 计入统计
