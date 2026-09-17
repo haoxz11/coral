@@ -158,6 +158,7 @@ pub fn parse_home_action(raw: &str) -> Option<(String, String)> {
 }
 
 /// 顶栏一级菜单项。
+#[derive(Debug)]
 pub struct NavSection {
     pub title: String,
     pub url: String,
@@ -453,15 +454,28 @@ pub fn initial_tree_json_scoped(
     serde_json::to_string(&[root]).unwrap_or_else(|_| "[]".to_string())
 }
 
-/// 顶栏一级菜单（含 active 判定：当前页 URL 与菜单 URL 同前缀）。
-pub fn top_nav(index: &SiteIndex, current_url: &str) -> Vec<NavSection> {
+/// 顶栏一级菜单（含 active 判定）。
+///
+/// active 以**源文件归属目录**推导而非请求 URL 前缀：页面 permalink 可与源目录
+/// 无前缀关系（如 tools/ 下页面 permalink /ocean/xxx），按请求 URL 匹配会丢高亮。
+/// `rel_path` 为请求解析出的页面源文件（None 时——如 404 页——无 active）。
+pub fn top_nav(index: &SiteIndex, current_url: &str, rel_path: Option<&Path>) -> Vec<NavSection> {
     let cur = current_url.trim_end_matches('/');
+    // 当前页归属一级目录的对外 URL（encode 形态），None = 根页面/一级文档/未知
+    let active_dir_url = rel_path.and_then(|rp| index.top_section_of(rp)).map(|dir| {
+        let href = index.href_for_dir(&dir);
+        href.trim_end_matches('/').to_string()
+    });
     index
         .top_sections()
         .into_iter()
         .map(|ts| {
             let sec = ts.url.trim_end_matches('/');
-            let active = cur == sec || cur.starts_with(&format!("{sec}/"));
+            let active = match &active_dir_url {
+                // 归属目录 URL 比对（目录带 permalink 时也已归一到对外 URL）
+                Some(dir_url) => dir_url == sec,
+                None => cur == sec || cur.starts_with(&format!("{sec}/")),
+            };
             NavSection {
                 title: ts.title,
                 url: ts.url,
@@ -561,6 +575,59 @@ mod tests {
     fn test_site_title_from_root_index() {
         let index = fixture_index();
         assert_eq!(site_title(&index), "站点首页");
+    }
+
+    #[test]
+    fn test_top_nav_active_by_source_dir_with_permalink() {
+        let index = fixture_index();
+        // news/2026-release.md 的 permalink /release-notes/ 与源目录 /news 无前缀关系：
+        // 按请求 URL 匹配会丢高亮，按源文件归属目录推导应保持 news 选中
+        let nav = top_nav(
+            &index,
+            "/release-notes/",
+            Some(Path::new("news/2026-release.md")),
+        );
+        let news = nav
+            .iter()
+            .find(|n| n.url.trim_end_matches('/') == "/news")
+            .expect("fixture 含 news 一级目录");
+        assert!(news.active, "permalink 页面按归属目录高亮：{news:?}");
+        // 归属目录分支页自身（默认 URL）同样选中
+        let nav = top_nav(&index, "/news", Some(Path::new("news/_index.md")));
+        assert!(
+            nav.iter()
+                .find(|n| n.url.trim_end_matches('/') == "/news")
+                .expect("news 菜单存在")
+                .active,
+            "分支页高亮"
+        );
+        // 非归属目录不选中
+        let nav = top_nav(
+            &index,
+            "/release-notes/",
+            Some(Path::new("news/2026-release.md")),
+        );
+        assert!(
+            !nav.iter()
+                .find(|n| n.url.trim_end_matches('/') == "/guide")
+                .expect("guide 菜单存在")
+                .active,
+            "非归属目录不高亮"
+        );
+    }
+
+    #[test]
+    fn test_top_nav_fallback_prefix_match_without_rel_path() {
+        // rel_path 未知（如 404/搜索页传 None）：回退请求 URL 前缀匹配
+        let index = fixture_index();
+        let nav = top_nav(&index, "/guide/intro", None);
+        assert!(
+            nav.iter()
+                .find(|n| n.url.trim_end_matches('/') == "/guide")
+                .expect("guide 菜单存在")
+                .active,
+            "回退前缀匹配"
+        );
     }
 
     #[test]

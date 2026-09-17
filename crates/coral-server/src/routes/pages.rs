@@ -83,7 +83,7 @@ async fn serve_page(state: &Arc<AppState>, raw_path: &str) -> Response {
     // 左树 scoped 到当前一级目录；首页/一级文档无侧栏
     let scope = index.top_section_of(&rel_path);
     let has_sidebar = scope.is_some();
-    let top_nav = crate::templates::top_nav(&index, &decoded);
+    let top_nav = crate::templates::top_nav(&index, &decoded, Some(&rel_path));
 
     // 门户首页（archetype=home）
     if page.fm.archetype.as_deref() == Some("home") {
@@ -493,7 +493,7 @@ pub async fn search_page(
         asset_css: crate::routes::embedded_assets::fingerprinted_url("app.css"),
         asset_js: crate::routes::embedded_assets::fingerprinted_url("app.js"),
         has_sidebar: false,
-        top_nav: crate::templates::top_nav(&index, ""),
+        top_nav: crate::templates::top_nav(&index, "", None),
         current_default_url: String::new(),
         current_dir_hrefs: Vec::new(), // 搜索结果页无侧栏
         project_icon: crate::templates::project_icon(&index).unwrap_or_default(),
