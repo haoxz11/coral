@@ -500,7 +500,7 @@ checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
 name = "coral-cli"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -515,7 +515,7 @@ dependencies = [
 
 [[package]]
 name = "coral-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "comrak",
  "gix",
@@ -535,7 +535,7 @@ dependencies = [
 
 [[package]]
 name = "coral-server"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "askama",
  "axum",
