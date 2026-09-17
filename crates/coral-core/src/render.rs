@@ -119,7 +119,9 @@ fn render_plugins() -> Plugins<'static> {
 }
 
 /// markdown → HTML（含代码高亮与锚点）。TOC 经线程局部收集后取走。
-fn render_markdown_collect(text: &str) -> (String, Vec<TocEntry>) {
+/// `base_dir`：源文件所在目录（相对 content 根），相对链接重写的基准；
+/// None 时（测试等场景）不做重写。
+fn render_markdown_collect(text: &str, base_dir: Option<&Path>) -> (String, Vec<TocEntry>) {
     let opts = comrak_options();
     let arena = Arena::new();
     let root = parse_document(&arena, text, &opts);
@@ -127,14 +129,16 @@ fn render_markdown_collect(text: &str) -> (String, Vec<TocEntry>) {
     let mut out = String::new();
     // format_html 失败仅在底层 io 错误（String 写入不会失败），降级为部分输出
     let _ = format_html_with_plugins(root, &opts, &mut out, &render_plugins());
+    let out = rewrite_relative_links(&out, base_dir);
     let out = mark_external_links(&out);
     let toc = TOC_SINK.with(|sink| std::mem::take(&mut *sink.borrow_mut()));
     (out, toc)
 }
 
 /// 内层 markdown 渲染（shortcode body 递归用；TOC 不收集）。
-fn render_markdown_text(text: &str) -> String {
-    let (html, _) = render_markdown_collect(text);
+/// base_dir 与外层同源（内层相对链接以整页源文件位置为基准）。
+fn render_markdown_text(text: &str, base_dir: Option<&Path>) -> String {
+    let (html, _) = render_markdown_collect(text, base_dir);
     html
 }
 
@@ -188,6 +192,119 @@ fn find_link_open(html: &str) -> Option<usize> {
         (Some(x), Some(y)) => Some(x.min(y)),
         (x, y) => x.or(y),
     }
+}
+
+/// 相对链接重写为站内绝对路径（a href 与 img src）。
+///
+/// comrak 原样输出相对链接，浏览器按**当前页 URL** 解析——permalink 页面的
+/// URL 空间与文件目录脱钩，`./b.md` 解析到 permalink 路径下 404。此处基于
+/// 源文件所在目录（相对 content 根）在服务端完成解析：
+/// - `./b.md` → `/{dir}/b`（md 剥扩展名，对齐页面路由形态）
+/// - `../guide.md` → 逐级上溯；`./img.png` → `/{dir}/img.png`（静态资产保扩展名）
+/// - 指向目录 `./sub/` → `/{dir}/sub`
+///
+/// 不动：绝对路径、锚点、带 scheme（http/mailto）、`data:`。`..` 上溯超出
+/// content 根（base_dir 耗尽）原样保留（浏览器侧自然 404，不做映射）。
+/// 路径段 percent-encode 对齐路由形态（中文/空格），comrak 输出的 href 已是
+/// 转义文本，此处基于 UTF-8 字符串操作，不引入切分风险。
+fn rewrite_relative_links(html: &str, base_dir: Option<&Path>) -> String {
+    let Some(base) = base_dir else {
+        return html.to_string();
+    };
+    if !html.contains("<a href=\"./")
+        && !html.contains("<a href=\"../")
+        && !html.contains("<img src=\"./")
+        && !html.contains("<img src=\"../")
+    {
+        return html.to_string();
+    }
+    let mut result = String::with_capacity(html.len());
+    let mut rest = html;
+    while let Some(pos) = find_relative_attr(rest) {
+        let (before, after) = rest.split_at(pos);
+        result.push_str(before);
+        // after 以 `<a href=".` 或 `<img src=".` 开头；attr 值到闭引号结束
+        let quote_end = match after.find('"') {
+            Some(q) if q > 0 => after[q + 1..].find('"').map(|e| q + 1 + e),
+            _ => None,
+        };
+        let Some(end) = quote_end else {
+            result.push_str(after);
+            return result;
+        };
+        // 开标签属性名长度：<a href=" 或 <img src="
+        let attr_len = if after.starts_with("<img") { 10 } else { 9 };
+        let value = &after[attr_len..end];
+        let rewritten = match resolve_relative(value, base) {
+            Some(abs) => abs,
+            None => value.to_string(),
+        };
+        result.push_str(&after[..attr_len]);
+        result.push_str(&rewritten);
+        result.push('"');
+        rest = &after[end + 1..];
+    }
+    result.push_str(rest);
+    result
+}
+
+/// 定位下一个相对形态的 `<a href=".` / `<img src=".`（含 `./` 与 `../`）。
+fn find_relative_attr(html: &str) -> Option<usize> {
+    let mut best: Option<usize> = None;
+    for needle in [
+        "<a href=\"./",
+        "<a href=\"../",
+        "<img src=\"./",
+        "<img src=\"../",
+    ] {
+        if let Some(p) = html.find(needle) {
+            best = Some(best.map_or(p, |b: usize| b.min(p)));
+        }
+    }
+    best
+}
+
+/// 相对路径 → 站内绝对 URL。返回 None 表示不重写（越根/空段非法）。
+fn resolve_relative(value: &str, base: &Path) -> Option<String> {
+    // 剥锚点后缀（./x.md#sec → ./x.md + #sec）
+    let (path, anchor) = match value.split_once('#') {
+        Some((p, a)) => (p, Some(a)),
+        None => (value, None),
+    };
+    if !path.starts_with("./") && !path.starts_with("../") {
+        return None;
+    }
+    let mut segs: Vec<&str> = base
+        .components()
+        .filter_map(|c| c.as_os_str().to_str())
+        .collect();
+    for seg in path.split('/') {
+        match seg {
+            "." | "" => continue,
+            ".." => {
+                segs.pop()?;
+            }
+            s => segs.push(s),
+        }
+    }
+    // md 剥扩展名对齐页面路由（.md 直访已 404）
+    let is_md = segs.last().is_some_and(|s| s.ends_with(".md"));
+    if is_md {
+        let last = segs.pop()?;
+        segs.push(last.trim_end_matches(".md"));
+    }
+    let mut url = String::from("/");
+    url.push_str(&segs.join("/"));
+    // 指向目录的相对链接（./sub/）保留尾斜杠：浏览器对 /sub 与 /sub/ 解析
+    // 下一级相对路径的行为不同，且目录路由形态以尾斜杠为准
+    if path.ends_with('/') && !url.ends_with('/') {
+        url.push('/');
+    }
+    if let Some(a) = anchor {
+        url.push('#');
+        url.push_str(a);
+    }
+    Some(url)
 }
 
 /// 站内文件链接：`/` 开头，最后一段（文件名）含 `.`——即带扩展名的静态资产；
@@ -322,11 +439,13 @@ pub fn render_page(
     // 行内 $ 需 inline_math；占位符 E001 与 shortcode E000 命名空间隔离）
     let math = crate::math::extract_math(&md_input, render_cfg.inline_math);
 
-    // 2) comrak 渲染（锚点 + TOC 收集 + 代码高亮）
-    let (mut html, toc) = render_markdown_collect(&math.text);
+    // 2) comrak 渲染（锚点 + TOC 收集 + 代码高亮）；
+    // 相对链接重写以源文件目录为基准——与页面最终 URL（permalink）解耦
+    let base_dir = rel_path.parent();
+    let (mut html, toc) = render_markdown_collect(&math.text, base_dir);
 
     // 3) 回填：shortcode 内部内容递归走 markdown 管线（% 语义）
-    let render_inner = |text: &str| render_markdown_text(text);
+    let render_inner = |text: &str| render_markdown_text(text, base_dir);
     let ctx = RenderCtx {
         index,
         rel_path,
@@ -707,6 +826,62 @@ mod tests {
             page.html
         );
         assert_eq!(page.html.matches("tab-header active").count(), 1);
+    }
+
+    #[test]
+    fn test_relative_links_rewritten_from_source_dir() {
+        // 相对链接以源文件目录为基准重写（permalink 页面不再按页面 URL 解析）
+        let html = r##"<p><a href="./b.md">md</a> <a href="./img.png">图链</a> <img src="./pic.png" alt="p" /> <a href="../guide.md">上级</a> <a href="./sub/">目录</a> <a href="./b.md#sec">带锚点</a></p>"##;
+        let out = rewrite_relative_links(html, Some(Path::new("tools")));
+        assert!(out.contains(r##"<a href="/tools/b">md</a>"##), "{out}");
+        assert!(
+            out.contains(r##"<a href="/tools/img.png">图链</a>"##),
+            "{out}"
+        );
+        assert!(
+            out.contains(r##"<img src="/tools/pic.png" alt="p" />"##),
+            "{out}"
+        );
+        assert!(out.contains(r##"<a href="/guide">上级</a>"##), "{out}");
+        assert!(out.contains(r##"<a href="/tools/sub/">目录</a>"##), "{out}");
+        assert!(
+            out.contains(r##"<a href="/tools/b#sec">带锚点</a>"##),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn test_relative_links_non_relative_untouched() {
+        // 绝对路径/锚点/带 scheme 不动
+        let html = r##"<p><a href="/guide">绝对</a> <a href="#s">锚</a> <a href="https://x.com">外链</a> <a href="mailto:a@b.c">邮件</a> <img src="data:image/png;base64,xx" alt="d" /></p>"##;
+        let out = rewrite_relative_links(html, Some(Path::new("tools")));
+        assert_eq!(out, html);
+    }
+
+    #[test]
+    fn test_relative_links_escape_root_kept() {
+        // ../ 上溯超出 content 根：原样保留（不做映射，浏览器侧自然 404）
+        let html = r##"<p><a href="../../../etc/passwd">逃逸</a></p>"##;
+        let out = rewrite_relative_links(html, Some(Path::new("a/b")));
+        assert_eq!(out, html);
+    }
+
+    #[test]
+    fn test_relative_links_in_full_render_with_permalink() {
+        // 端到端：permalink 页面的相对链接仍以源文件位置解析
+        let page = render(
+            "---\ntitle: t\npermalink: /fixed/\n---\n\n[同目录](./b.md) [图](./i.png)",
+            "tools/zz.md",
+        );
+        assert!(page.html.contains("href=\"/tools/b\""), "{}", page.html);
+        assert!(page.html.contains("href=\"/tools/i.png\""), "{}", page.html);
+        // 带扩展名的静态文件链接同时获得新开页标记
+        assert!(
+            page.html
+                .contains("href=\"/tools/i.png\" target=\"_blank\""),
+            "{}",
+            page.html
+        );
     }
 
     #[test]

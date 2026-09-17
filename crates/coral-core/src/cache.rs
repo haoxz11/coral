@@ -18,7 +18,8 @@ use tracing::warn;
 /// v5：shortcode 预处理感知 fenced/行内代码——代码块内定界符透传不再展开。
 /// v6：notice 标题图标由 iconify 运行时组件改为构建期内联 SVG。
 /// v7：站内静态文件链接（带扩展名）加 target=_blank 新开页。
-pub const MANIFEST_VERSION: u32 = 7;
+/// v8：相对链接（a/img）服务端重写为以源文件目录为基准的绝对路径（permalink 解耦）。
+pub const MANIFEST_VERSION: u32 = 8;
 
 /// 缓存操作错误。`Corrupt` 由调用方降级为 miss，绝不映射 500。
 #[derive(Debug, thiserror::Error)]
