@@ -65,6 +65,8 @@ fn make_content() -> (tempfile::TempDir, PathBuf) {
     )
     .unwrap();
     std::fs::write(root.join("docs/img.png"), "png-bytes").unwrap();
+    std::fs::write(root.join("docs/page.html"), "<p>html 展示</p>").unwrap();
+    std::fs::write(root.join("docs/report.pdf"), "%pdf-bytes").unwrap();
     std::fs::write(root.join(".hidden/secret.md"), "隐藏").unwrap();
     (tmp, root)
 }
@@ -382,6 +384,18 @@ async fn test_static_asset_mime_and_immutable() {
     let cc = headers.iter().find(|(k, _)| k == "cache-control").unwrap();
     assert!(cc.1.contains("immutable"), "{}", cc.1);
     assert!(cc.1.contains("max-age=31536000"), "{}", cc.1);
+
+    // html 浏览器内嵌展示（非 octet-stream 触发下载）
+    let (status, headers, body) = get(&app, "/docs/page.html").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "<p>html 展示</p>".as_bytes());
+    let ct = headers.iter().find(|(k, _)| k == "content-type").unwrap();
+    assert_eq!(ct.1, "text/html; charset=utf-8");
+    // pdf 同理浏览器内嵌（Acrobat/原生查看器）
+    let (status, headers, _) = get(&app, "/docs/report.pdf").await;
+    assert_eq!(status, StatusCode::OK);
+    let ct = headers.iter().find(|(k, _)| k == "content-type").unwrap();
+    assert_eq!(ct.1, "application/pdf");
 
     // md 不走静态——页面路由正常处理
     let (status, _, _) = get(&app, "/guide/intro.md").await;
