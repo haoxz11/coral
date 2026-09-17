@@ -131,7 +131,7 @@ async fn test_branch_fallback_dual_url_readme_and_index() {
     assert_eq!(b3, b4);
 
     // 树中不出现被吸收的 readme/index 子节点
-    let (_, _, tree_body) = get(&app, "/api/tree?path=%2F").await;
+    let (_, _, tree_body) = get(&app, "/api/tree/children?path=%2F").await;
     let tree = String::from_utf8(tree_body).unwrap();
     assert!(
         !tree.contains("/readme-dir/readme"),

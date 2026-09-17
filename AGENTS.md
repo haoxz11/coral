@@ -62,7 +62,7 @@
 
 ## 七、测试规范
 
-- 分层对齐技术设计 §12：单元（模块内）→ 集成（core fixture 树）→ HTTP（server oneshot）→ 基准（criterion）→ e2e（真实目录，scripts/e2e.sh）
+- 分层对齐技术设计 §12：单元（模块内）→ 集成（core fixture 树）→ HTTP（server oneshot）→ 基准（criterion）→ e2e（真实目录，bin/e2e.sh）
 - 集成测试的 fixture 树保持**需求无关**：不复制真实内容目录，不新增"只照抄实例特征"的 fixture；fixture 变更是测试设计的显式变更
 - 测试命名表达意图：`test_url_decode_before_normalize_blocks_traversal` 而不是 `test_1`
 - 失效链（文件变化 → 树重建 → children 祖先链片段失效）必须有端到端集成测试覆盖，这条链是本系统最复杂的正确性约束（FR-8/8a）

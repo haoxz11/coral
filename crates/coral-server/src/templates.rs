@@ -1,7 +1,8 @@
 //! askama 模板注册与渲染。
 //!
 //! 模板编译期检查；`|safe` 豁免点收敛在 page.html 的 content_html
-//! 与 layout.html 的 initial_tree_json 两处（可信内容源前提）。
+//! 与 search.html 的 hit.snippet 两处（可信内容源前提；
+//! layout.html 的 initial_tree_json 走默认转义，非豁免点）。
 
 use askama::Template;
 use coral_core::TocEntry;
@@ -16,7 +17,7 @@ pub struct LayoutTpl {
     pub site_title: String,
     /// 首屏树 JSON（build_subtree(root, initial_depth)）
     pub initial_tree_json: String,
-    /// 站点任一节点带 icon/menuPre 时才输出 Iconify script（无图标站点零外链）
+    /// 站点任一节点带 icon 时才输出 Iconify script（无图标站点零外链）
     pub has_icons: bool,
     /// 顶栏一级菜单
     pub top_nav: Vec<NavSection>,

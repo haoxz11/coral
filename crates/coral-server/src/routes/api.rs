@@ -1,4 +1,4 @@
-//! API 路由：/api/tree/children 与探针。
+//! API 路由：/api/tree/children、探针、favicon、/api/search、/search/reindex。
 
 use crate::state::AppState;
 use axum::extract::{ConnectInfo, Query, State};

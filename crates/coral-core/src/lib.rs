@@ -1,8 +1,9 @@
 //! coral 领域层。
 //!
 //! 纯同步代码，不依赖 tokio/axum 等运行时（AGENTS.md 分层准则）。
-//! 模块：config（配置）、frontmatter、scanner、tree、render、
-//! shortcode、highlight、cache。
+//! 模块：config（配置）、frontmatter、scanner、tree、render、shortcode、
+//! highlight、cache、math、url（M1）；search（M2）；backfill（M2 维护命令）；
+//! git_sync（M3）。
 
 pub mod backfill;
 pub mod cache;

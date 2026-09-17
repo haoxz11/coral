@@ -1,6 +1,7 @@
 //! backfill-date：把文件的可靠时间写入 frontmatter date（M2）。
 //!
-//! 一次性内容源维护命令（`coral --backfill-date <root> [--force] [--all]`）：
+//! 一次性内容源维护命令（`coral --backfill-date <root> [--force] [--all]
+//! [--date-source first|last]`）：
 //! - git 仓库（root 或其祖先）：默认只处理**工作区有变更**的文件
 //!   （`git status --porcelain` 的 M/A/??）——tracked 变更用 git 最后
 //!   提交时间（比 mtime 可靠，同步会刷 mtime），新文件（??）用 mtime；
@@ -119,7 +120,8 @@ fn changed_md_files(repo: &Path, root: &Path) -> std::io::Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-/// 文件 mtime → `YYYY-MM-DD HH:MM:SS`（本地时区，与 git 时间格式一致）。
+/// 文件 mtime → `YYYY-MM-DD HH:MM:SS`（UTC 手写格式，无 chrono 依赖；
+/// 与 git 本地时区时间的口径差异见函数内说明）。
 fn file_mtime(path: &Path) -> std::io::Result<String> {
     let meta = std::fs::metadata(path)?;
     let mtime = meta

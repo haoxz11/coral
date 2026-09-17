@@ -1,7 +1,8 @@
 //! 渲染管线编排。
 //!
-//! 顺序：shortcode 扫描（提取/占位）→ comrak 渲染（GFM + 高亮 + 锚点）
-//! → shortcode 回填（内部内容递归走同一管线）→ TOC → date 页脚。
+//! 顺序：shortcode 扫描（提取/占位）→ 数学定界提取（占位）→ comrak 渲染
+//! （GFM + 高亮 + 锚点）→ shortcode 回填（内部内容递归走同一管线）
+//! → 数学占位回填 → TOC → date 页脚。
 //! 输出 HTML 片段（不含 layout）。
 
 use crate::highlight;

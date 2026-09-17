@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # coral e2e 验收：以真实二进制进程对真实内容目录做端到端测试。
-# 用法：scripts/e2e.sh [二进制路径]（默认 target/release/coral）
+# 用法：bin/e2e.sh [二进制路径]（默认 target/release/coral）
 set -euo pipefail
 
 BIN="${1:-./target/release/coral}"

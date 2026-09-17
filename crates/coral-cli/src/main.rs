@@ -48,8 +48,9 @@ struct Args {
     #[arg(short = 'v', action = clap::ArgAction::Version)]
     print_version: (),
 
-    /// 一次性维护：把 git 最后提交时间写入 md 的 frontmatter date
-    /// （无值补齐，--force 替换；执行后退出，不启动服务）
+    /// 一次性维护：把 git 提交时间写入 md 的 frontmatter date
+    /// （默认最后提交时间，--date-source first 换最早；无值补齐，
+    /// --force 替换；执行后退出，不启动服务）
     #[arg(long, conflicts_with_all = ["config", "dir"])]
     backfill_date: Option<std::path::PathBuf>,
 

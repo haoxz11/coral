@@ -37,12 +37,17 @@ jobs:
       - run: cargo test --workspace
 
   linux-check:
-    # NFR-5：Linux 目标编译检查（linux runner 直接跑，不用 cross）
+    # NFR-5：Linux 双 target 编译检查。x86_64 与 runner 架构一致，原生跑；
+    # aarch64 交叉编译需 C 工具链（zstd 等 C 依赖走 cc-rs），cargo check 不链接，
+    # 故只需 gcc-aarch64-linux-gnu，无需配 linker
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install aarch64 cross gcc
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
       - uses: dtolnay/rust-toolchain@1.98.0
         with:
-          targets: aarch64-unknown-linux-gnu
+          targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --target x86_64-unknown-linux-gnu
       - run: cargo check --workspace --target aarch64-unknown-linux-gnu

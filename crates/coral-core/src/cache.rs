@@ -351,7 +351,7 @@ impl CacheStore {
         }
     }
 
-    /// manifest 整体写回磁盘（防抖批次后/每 5s/停机时由 server 层触发）。
+    /// manifest 整体写回磁盘（watcher 防抖批次后/优雅停机时由上层触发）。
     /// 失败 WARN + Err（服务继续，故障矩阵：下次启动走全量重建）。
     pub fn flush(&self) -> Result<(), CacheError> {
         let snapshot = self.manifest.lock().expect("manifest 锁中毒").clone();

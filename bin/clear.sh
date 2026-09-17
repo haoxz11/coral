@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# coral target 目录瘦身脚本（不影响增量编译，详见 docs 目标目录梳理）
+# coral target 目录瘦身脚本（不影响增量编译）
 #
 # 原理：只删"按时间已过期"的产物——
 #   1. cargo sweep -t 删 deps/build 里超过 N 天的旧 hash 产物（当前有效的依赖 rlib 全保留）
@@ -7,9 +7,9 @@
 # 当天/近期的活跃缓存不动，下次 cargo check/test 仍走增量。
 #
 # 用法：
-#   scripts/clear.sh              # 清理 7 天前的产物（默认）
-#   scripts/clear.sh 3            # 清理 3 天前的产物
-#   scripts/clear.sh --dry-run 3  # 只预览将释放多少空间，不删除
+#   bin/clear.sh              # 清理 7 天前的产物（默认）
+#   bin/clear.sh 3            # 清理 3 天前的产物
+#   bin/clear.sh --dry-run 3  # 只预览将释放多少空间，不删除
 #
 # 依赖 cargo-sweep（没有会提示安装命令）。
 set -euo pipefail

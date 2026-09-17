@@ -11,7 +11,7 @@
 use crate::render::escape_html;
 
 /// 数学公式占位符形态（回填后进 HTML）。
-/// `data-original` 保留转义原文供前端 KaTeX render；元素本身的内容
+/// `data-formula` 保留转义原文供前端 KaTeX render；元素本身的内容
 /// 也是转义原文——CDN 不可达/无 JS 时天然降级为可读文本。
 pub fn katex_block_html(formula: &str) -> String {
     format!(
@@ -41,8 +41,8 @@ pub struct MathExtract {
 
 /// 提取数学公式为占位符。
 ///
-/// `placeholder_fn(i)` 由调用方提供（与 shortcode 占位符区分命名空间，
-/// 避免冲突——这里用独立计数器，占位符形如 `\u{E001}<i>\u{E001}`）。
+/// 占位符与 shortcode 区分命名空间（独立字符 `\u{E001}` 包裹序号），
+/// comrak 原样透传，回填时按序号取回公式。
 pub fn extract_math(input: &str, inline_enabled: bool) -> MathExtract {
     const PH: char = '\u{E001}';
     let mut out = String::with_capacity(input.len());

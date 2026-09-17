@@ -2,11 +2,11 @@
 # coral 发版脚本（手动模式：GitHub 仓库不放源码，流程详见 docs/release.md）
 #
 # 用法：
-#   scripts/dist.sh                            # patch 位自动 +1，notes 取 docs/release-notes/v<X.Y.Z>.md
-#   scripts/dist.sh 0.2.0                      # 指定版本号（X.Y.Z 或 vX.Y.Z）
-#   scripts/dist.sh --notes "多行
+#   bin/dist.sh                            # patch 位自动 +1，notes 取 docs/release-notes/v<X.Y.Z>.md
+#   bin/dist.sh 0.2.0                      # 指定版本号（X.Y.Z 或 vX.Y.Z）
+#   bin/dist.sh --notes "多行
 #   文本" 0.2.0                                # notes 直接传入（支持多行）
-#   scripts/dist.sh --notes-file notes.md      # notes 从文件读取
+#   bin/dist.sh --notes-file notes.md      # notes 从文件读取
 #
 # notes 来源优先级：--notes-file > --notes > docs/release-notes/<版本>.md；
 # 三者皆无时报错（不再交互输入）

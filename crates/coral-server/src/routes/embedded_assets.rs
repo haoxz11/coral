@@ -1,6 +1,7 @@
 //! 内嵌静态资源路由：rust-embed /assets/。
 //!
-//! app.css / app.js；FA 字体按需（Q6）——有 menuPre 的站点在 e2e 覆盖。
+//! app.css / app.js（图标方案为 frontmatter icon + Iconify 运行时，
+//! 见 templates.rs has_icons）。
 //!
 //! 资产 URL 带内容指纹（`app.<xxh3 前 8 hex>.css`）：内容变则 URL 变，
 //! immutable 一年缓存因此语义正确（升级二进制后老缓存自然失效）。

@@ -52,7 +52,8 @@ pub struct DirMeta {
     pub weight: Option<i64>,
     /// `_index.md` frontmatter 的 icon（菜单图标）
     pub icon: Option<String>,
-    /// `_index.md` frontmatter 的 date（树排序第 3 级，字符串比较）
+    /// `_index.md` frontmatter 的 date（树排序第 3 级；比较前经
+    /// `frontmatter::normalize_date` 规范化为 `YYYY-MM-DD`，见 tree.rs SortKey）
     pub date: Option<String>,
     pub mtime: SystemTime,
     pub child_dirs: Vec<PathBuf>,

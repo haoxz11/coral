@@ -15,10 +15,11 @@ use tracing::{info, warn};
 
 use crate::singleflight::Singleflight;
 
-/// 搜索状态：未开启恒 None；构建中 Ready 标志 false。
+/// 搜索状态：未开启时 ready_index 恒 None；构建中同样返回 None
+/// （由 enabled 区分"未开启"与"开启但索引未就绪"）。
 #[derive(Default)]
 pub struct SearchState {
-    /// None = 未开启；Some(None) = 开启但构建中；Some(Some) = 就绪
+    /// None = 未就绪（未开启，或开启但索引尚未构建完）；Some = 就绪
     inner: std::sync::RwLock<Option<Arc<SearchIndex>>>,
     enabled: bool,
     /// 重建进行中标记（/search/reindex 并发去重：重建中再请求立刻失败）
