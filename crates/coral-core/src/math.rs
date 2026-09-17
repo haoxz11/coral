@@ -147,15 +147,6 @@ pub fn replace_math_placeholders(html: &str, math: &MathExtract) -> String {
 
 // ---- 工具函数 ----
 
-fn utf8_len(b: u8) -> usize {
-    match b {
-        0x00..=0x7F => 1,
-        0xC0..=0xDF => 2,
-        0xE0..=0xEF => 3,
-        _ => 4,
-    }
-}
-
 /// 是否处于行首（out 的末尾是 \n 或 out 为空）。
 fn is_line_start(out: &str) -> Option<()> {
     if out.is_empty() || out.ends_with('\n') {
@@ -165,7 +156,13 @@ fn is_line_start(out: &str) -> Option<()> {
     }
 }
 
-fn count_run(bytes: &[u8], mut i: usize, ch: u8) -> usize {
+/// 位置 i 是否处于行首（shortcode 围栏跟踪按位置判断，避免依赖输出缓冲）。
+pub(crate) fn is_line_start_at(bytes: &[u8], i: usize) -> bool {
+    i == 0 || bytes[i - 1] == b'\n'
+}
+
+/// 反引号/波浪 run 长度（shortcode 围栏跟踪复用）。
+pub(crate) fn count_run(bytes: &[u8], mut i: usize, ch: u8) -> usize {
     let mut n = 0;
     while i < bytes.len() && bytes[i] == ch {
         n += 1;
@@ -190,6 +187,22 @@ fn inline_code_span(bytes: &[u8], start: usize) -> (usize, usize) {
         }
     }
     (0, 0)
+}
+
+/// 行内代码 span 总长（含两侧反引号）；无闭合返回 0（shortcode 扫描跳过行内代码复用）。
+pub(crate) fn inline_code_span_len(bytes: &[u8], start: usize) -> usize {
+    let (len, open) = inline_code_span(bytes, start);
+    if open > 0 { len } else { 0 }
+}
+
+/// UTF-8 字符字节长度（shortcode 扫描逐字符推进复用）。
+pub(crate) fn utf8_len(b: u8) -> usize {
+    match b {
+        0x00..=0x7F => 1,
+        0xC0..=0xDF => 2,
+        0xE0..=0xEF => 3,
+        _ => 4,
+    }
 }
 
 /// 找定界符（跨行），返回其起始位置。

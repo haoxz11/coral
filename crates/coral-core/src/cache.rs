@@ -14,7 +14,9 @@ use tracing::warn;
 /// manifest schema 版本。渲染逻辑变更（模板/shortcode 输出形态等）时递增，
 /// 旧版本 manifest 整体不兼容 → 全量重建。
 /// v2：notice 由 details 折叠改为 hint 形态。
-pub const MANIFEST_VERSION: u32 = 3;
+/// v4：math 围栏代码块由语法高亮代码块改为 katex 块级公式占位。
+/// v5：shortcode 预处理感知 fenced/行内代码——代码块内定界符透传不再展开。
+pub const MANIFEST_VERSION: u32 = 5;
 
 /// 缓存操作错误。`Corrupt` 由调用方降级为 miss，绝不映射 500。
 #[derive(Debug, thiserror::Error)]

@@ -83,13 +83,42 @@ struct Span {
 }
 
 /// 扫描全部完整 span；`{{%` 无 `%}}` 配对等内容按普通文本跳过。
+/// fenced 代码块与行内代码内的定界符不识别（展示源码场景），原样透传。
 fn scan_spans(body: &str) -> Vec<(usize, Span)> {
     let bytes = body.as_bytes();
     let mut spans = Vec::new();
     let mut i = 0;
+    // 围栏状态：与 math.rs extract_math 同款判定（行首 ```/~~~ run ≥3 到行尾），
+    // 开闭 run 长度必须一致才视为闭合
+    let mut in_fence = false;
+    let mut fence_marker_len = 0usize;
     while i < body.len() {
-        if bytes[i] != b'{' || bytes.get(i + 1) != Some(&b'{') {
-            i += 1;
+        let b = bytes[i];
+        if (b == b'`' || b == b'~') && crate::math::is_line_start_at(bytes, i) {
+            let run = crate::math::count_run(bytes, i, b);
+            if run >= 3 {
+                let after = bytes.get(i + run);
+                if after.is_none() || after.is_some_and(|c| *c == b'\n' || *c == b'\r') {
+                    if in_fence && run == fence_marker_len {
+                        in_fence = false;
+                    } else if !in_fence {
+                        in_fence = true;
+                        fence_marker_len = run;
+                    }
+                    i += run;
+                    continue;
+                }
+            }
+        }
+        if b == b'`' && !in_fence {
+            let len = crate::math::inline_code_span_len(bytes, i);
+            if len > 0 {
+                i += len;
+                continue;
+            }
+        }
+        if in_fence || b != b'{' || bytes.get(i + 1) != Some(&b'{') {
+            i += crate::math::utf8_len(b);
             continue;
         }
         let (delim, close) = match bytes.get(i + 2) {
@@ -399,6 +428,53 @@ pub fn render_token(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_shortcode_in_fence_not_scanned() {
+        // fenced 代码块内的 shortcode 写法是展示源码，不识别（透传给 comrak 高亮）
+        let md = "```markdown\n{{% notice %}}示例{{% /notice %}}\n```\n";
+        let chunks = parse(md);
+        assert_eq!(chunks, vec![Chunk::Text(md.to_string())]);
+    }
+
+    #[test]
+    fn test_shortcode_in_tilde_fence_not_scanned() {
+        let md = "~~~markdown\n{{< tabs >}}\n~~~\n";
+        assert_eq!(parse(md), vec![Chunk::Text(md.to_string())]);
+    }
+
+    #[test]
+    fn test_shortcode_in_inline_code_not_scanned() {
+        // 行内代码内的写法同样透传
+        let md = "写法 `{{% notice %}}` 即可";
+        assert_eq!(parse(md), vec![Chunk::Text(md.to_string())]);
+    }
+
+    #[test]
+    fn test_shortcode_after_fence_still_scanned() {
+        // 围栏开闭状态不泄漏：块外 shortcode 照常识别（围栏文本保留为 Text）
+        let chunks = parse("```rust\nx()\n```\n\n{{% notice %}}内容{{% /notice %}}");
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0], Chunk::Text("```rust\nx()\n```\n\n".to_string()));
+        let Chunk::Shortcode(t) = &chunks[1] else {
+            panic!()
+        };
+        assert_eq!(t.name, "notice");
+    }
+
+    #[test]
+    fn test_shortcode_in_quadruple_backtick_fence() {
+        // 四反引号外层围栏包三反引号示例：外层开启后，内层 ``` 行不是 fence 开关
+        let md = "````markdown\n```bash\ncmd\n```\n{{% notice %}}\n````\n";
+        assert_eq!(parse(md), vec![Chunk::Text(md.to_string())]);
+    }
+
+    #[test]
+    fn test_unclosed_shortcode_in_fence_stays_text() {
+        // 围栏内未闭合写法不触发降级逻辑（整块都是文本）
+        let md = "```markdown\n{{% tabs %}}\n```";
+        assert_eq!(parse(md), vec![Chunk::Text(md.to_string())]);
+    }
 
     #[test]
     fn test_parse_simple_notice() {
