@@ -19,7 +19,8 @@ use tracing::warn;
 /// v6：notice 标题图标由 iconify 运行时组件改为构建期内联 SVG。
 /// v7：站内静态文件链接（带扩展名）加 target=_blank 新开页。
 /// v8：相对链接（a/img）服务端重写为以源文件目录为基准的绝对路径（permalink 解耦）。
-pub const MANIFEST_VERSION: u32 = 8;
+/// v9：前端 app.js 变更（iconify 兜底标记改轮询）——缓存页内嵌旧 JS hash 需重渲。
+pub const MANIFEST_VERSION: u32 = 9;
 
 /// 缓存操作错误。`Corrupt` 由调用方降级为 miss，绝不映射 500。
 #[derive(Debug, thiserror::Error)]
