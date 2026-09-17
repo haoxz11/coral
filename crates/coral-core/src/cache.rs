@@ -21,7 +21,8 @@ use tracing::warn;
 /// v8：相对链接（a/img）服务端重写为以源文件目录为基准的绝对路径（permalink 解耦）。
 /// v9：前端 app.js 变更（iconify 兜底标记改轮询）——缓存页内嵌旧 JS hash 需重渲。
 /// v10：前端变更（iconify 兜底轮询加密前段 + CSS 淡出）——同 v9 理由。
-pub const MANIFEST_VERSION: u32 = 10;
+/// v11：前端变更（iconify 兜底改 status 判定：loading 空白，仅 failed 画圆点）。
+pub const MANIFEST_VERSION: u32 = 11;
 
 /// 缓存操作错误。`Corrupt` 由调用方降级为 miss，绝不映射 500。
 #[derive(Debug, thiserror::Error)]

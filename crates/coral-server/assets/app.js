@@ -928,27 +928,30 @@ if (renderCfgMeta) {
   }
 }
 
-// ===== iconify 树图标渲染成功标记 =====
-// 兜底样式（圆点占位）由 CSS :not([data-iconified]) 提供；
-// 图标渲染成功后元素获得 data-iconified，兜底样式失效、SVG 正常显示。
-// 组件无状态变化事件、SVG 渲染进 shadow DOM 不触发 body mutation——只能轮询。
-// 前密后疏：前 3s 每 100ms（图标加载完成即时翻转，视觉无感知延迟），
-// 之后 1s 兜懒加载新增树节点，30s 稳态停表
-const markIconified = () => {
+// ===== iconify 树图标状态标记 =====
+// 组件 status 属性：rendered / loading / failed（无状态变化事件，只能轮询）。
+// rendered → data-iconified（元素自渲染，占位样式失效）；
+// failed → data-icon-failed（CSS 画圆点兜底）；
+// loading → 不动作（空白占位，正常加载全程无圆点）。
+// 前密后疏：前 3s 每 100ms，之后 1s 兜懒加载新增树节点，30s 稳态停表
+const syncIconState = () => {
   document.querySelectorAll('iconify-icon.tree-icon:not([data-iconified])').forEach((el) => {
-    if (el.shadowRoot && el.shadowRoot.querySelector('svg')) {
+    if (el.status === 'rendered') {
       el.setAttribute('data-iconified', '');
+      el.removeAttribute('data-icon-failed'); // 先失败后重试成功的翻转清理
+    } else if (el.status === 'failed') {
+      el.setAttribute('data-icon-failed', '');
     }
   });
 };
 let elapsed = 0;
 const poll = setInterval(() => {
-  markIconified();
+  syncIconState();
   elapsed += 1;
   if (elapsed === 30) clearInterval(poll);
 }, 100);
 setTimeout(() => {
   clearInterval(poll);
-  setInterval(markIconified, 1000);
+  setInterval(syncIconState, 1000);
 }, 3000);
-markIconified();
+syncIconState();
