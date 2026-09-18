@@ -518,6 +518,7 @@ name = "coral-core"
 version = "0.2.1"
 dependencies = [
  "comrak",
+ "filetime",
  "gix",
  "serde",
  "serde_json",

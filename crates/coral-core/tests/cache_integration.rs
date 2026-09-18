@@ -268,7 +268,7 @@ fn test_tree_invalidation_and_etag_semantics() {
     assert!(store.lookup_tree("guide").is_none());
 
     // 目录 mtime 变化 → diff 后树条目被清理
-    // （目录 mtime 由直接子项增删自然改变，不人为设置）
+    // （真实场景目录 mtime 随子项增删自然变化；测试中显式设置，见下方 b.md 处说明）
     let (tmp2, root) = make_content(&[("guide/a.md", "A")]);
     let store2 = CacheStore::open(&tmp.path().join("cache2"));
     store2.load_manifest();
@@ -290,8 +290,15 @@ fn test_tree_invalidation_and_etag_semantics() {
         )
         .unwrap();
     assert!(store2.lookup_tree("guide").is_some());
-    // 新增子文件 → 目录 mtime 自然变化 → diff 清理树条目
+    // 新增子文件 → 目录 mtime 变化 → diff 清理树条目。
+    // mtime 显式推进：Linux 目录 mtime 时间戳粒度粗（同粒度内增删子项 mtime 不变），
+    // 依赖自然刷新会让测试在 CI 上不稳定
     std::fs::write(root.join("guide/b.md"), "B").unwrap();
+    filetime::set_file_mtime(
+        root.join("guide"),
+        filetime::FileTime::from_unix_time((dir_mtime / 1000) as i64 + 60, 0),
+    )
+    .unwrap();
     let new_dir_mtime = scan_dirs(&root)["guide"];
     assert_ne!(dir_mtime, new_dir_mtime, "目录 mtime 应随子项新增而变化");
     let _ = store2.diff_against_scan(&scan_pages(&root), &scan_dirs(&root));

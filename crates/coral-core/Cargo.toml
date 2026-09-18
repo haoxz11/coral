@@ -22,6 +22,8 @@ gix = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"
+# 仅测试用：显式设置 mtime，规避 Linux 粗粒度时钟导致的测试不稳定
+filetime = "0.2"
 
 [[test]]
 name = "integration"
