@@ -1,10 +1,8 @@
 # Coral 使用文档
 
-> 适用版本：v0.3.0。新增了 AI 助手接入（MCP）与附件上传能力；v0.2.x 及更早没有这两项。含安装、命令行、配置参考、日常运维与常见问题。
-
 ## 1. 项目介绍
 
-Coral 是一个用 Rust 编写的**自托管 Markdown 文档服务**：把一个目录（或一个 Git 仓库里的 Markdown 目录）变成带实时预览、增量缓存、全文搜索和代码高亮的文档网站，并且**内嵌 MCP 端点**——AI 助手可以直接参与文档写作。
+Coral 是一个**自托管 Markdown 文档服务**：把一个目录（或一个 Git 仓库里的 Markdown 目录）变成带实时预览、增量缓存、全文搜索和代码高亮的文档网站，并且**内嵌 MCP 端点**——AI 助手可以直接参与文档写作。
 
 传统静态站点生成器的工作方式是全站构建——改一个文件也要重新构建整个站点，内容越多等待越久。Coral 从设计上就拒绝了这条路：启动只扫描文件元数据，页面按需渲染，文件保存后只更新变化的部分。
 
@@ -26,10 +24,9 @@ Coral 是一个用 Rust 编写的**自托管 Markdown 文档服务**：把一个
 
 **让 AI 参与写作，是 Coral 的第三设计目标。**
 
-- **内嵌 MCP 端点**：各类 Agent / Skill 等 AI 客户端直接接上就能用，不需要额外的网关、插件或中间服务
-- **插图与附件这件事，AI 能自己做完**：AI 上传的图片/附件存进**你自己的对象存储**，返回的是能直接贴进 Markdown、在站内正常渲染的永久链接——不用人工再传一次、再拼一次 URL
-- **默认关闭、按需开启**：`[mcp]` 与 `[upload]` 是各自独立的开关，默认都不开；不接 AI 的部署完全不受影响
-- **不新增第三方依赖**：MCP 服务由 Coral 自身提供，附件写进你自己的阿里云 OSS（只需一个 bucket），不引入任何 SaaS
+- **内嵌 MCP 端点**：AI 客户端直接接上就能用，不需要网关、插件或中间服务；配套的 [coral-doc](https://github.com/haoxz11/coral-doc) 技能已按文档库约定写好，一条命令安装
+- **插图这件事 AI 能自己做完**：上传的图片/附件存进你自己的对象存储，返回能直接贴进 Markdown 的永久链接——不用人工再传一次、再拼一次 URL
+- **AI 数据留在你手里**：MCP 服务由 Coral 自身提供，附件写进你自己的对象存储——不经过任何第三方 SaaS，也不需要为接入多部署一个组件
 
 **功能按需开启，开了就好用。**
 
@@ -108,11 +105,11 @@ curl --proto '=https' --tlsv1.2 -LsSf \
 
 ## 4. 命令行
 
-Coral 的全部命令行界面就是这些——没有子命令，启动即服务：
+```
+coral [选项] [子命令]
+```
 
-```
-coral [选项]
-```
+裸跑（不带 `--config`/`--dir`/子命令）：默认配置 `~/.coral/config.toml` 存在则自动用它启动，不存在则显示帮助。
 
 | 参数 | 说明 |
 |---|---|
@@ -123,11 +120,16 @@ coral [选项]
 | `--draft true\|false` | 覆盖草稿开关（见 [content] 配置） |
 | `--search true\|false` | 覆盖全文搜索开关 |
 | `--remote <url>` | 本地预览用：把文档里的附件链接（`/f/...`）交给远程 coral 实例解析，本地没配对象存储也能看到图片。须带 `http(s)://` 且不能带路径。优先级最高：启动参数 > 配置文件 > 首页头信息（见 `[upload]` 一节） |
-| `--backfill-date <dir>` | 一次性维护命令：把文件的可靠时间写入 Markdown 的 front matter `date` 字段（执行后退出，不启动服务；详见下文） |
-| `--force` | 与 `--backfill-date` 配合：已有 `date` 的文件也替换（默认只补齐无值的） |
-| `--all` | 与 `--backfill-date` 配合：处理目录下全部文件（git 模式默认只处理工作区有变更的文件） |
-| `--date-source <first\|last>` | 与 `--backfill-date` 配合：git 时间来源，`last` = 最后提交时间（**默认**），`first` = 最早提交时间（文件首次入库） |
-| `-v` / `-V` / `--version` | 输出版本号并退出 |
+| `-v` / `-V` / `--version` | 输出版本号并退出（第二行带内置 coral-doc skill 版本） |
+| `--lang <zh\|en>` | 强制界面语言：影响帮助/错误输出、skill 命令输出、服务日志。默认按 locale 环境检测（`LC_ALL` > `LC_MESSAGES` > `LANG`，zh* → 中文；未设置/`C` 在 macOS 上看系统语言，其他平台英文）；服务日志语言还可由配置 `[log] language` 控制，此参数优先 |
+
+除启动参数外还有两组子命令（执行后退出，不启动服务）：
+
+| 子命令 | 说明 |
+|---|---|
+| `coral skill <install\|ensure\|upgrade>` | 管理配套技能 coral-doc：`install` 安装/覆盖内置版；`ensure` 幂等检查（未装/过旧则升级，本地更新保留）；`upgrade` 联网从 GitHub 拉最新版（需 git） |
+| `coral doc backfill-date <dir>` | 一次性维护：把文件的可靠时间写入 Markdown 的 front matter `date` 字段（详见下文） |
+| `coral doc permalink-check <dir>` | 扫描 permalink 冲突并报告（裁决规则与运行时一致：date 老者胜、相等时先注册者胜）；`--fix` 删除失效方的 permalink 字段（行级手术，保注释保顺序），不加则只报告 |
 
 典型用法：
 
@@ -144,12 +146,14 @@ coral --dir ./content --remote https://docs.example.com  # 本地预览：/f/ �
 排序场景（发布版本、需求文档目录想按时间倒序看最新）依赖 front matter 的 `date` 字段，但存量文档常常没写。这个命令把每个文件的可靠时间批量写入：
 
 ```bash
-coral --backfill-date ./content              # git 仓库：只处理工作区有变更的文件
-coral --backfill-date ./content --all        # 处理目录下全部 md
-coral --backfill-date ./content --force      # 已有 date 的文件也替换（默认跳过）
-coral --backfill-date ./content --all --force  # 组合使用
-coral --backfill-date ./content --date-source first  # 用最早提交时间（默认 last）
+coral doc backfill-date ./content                     # git 仓库：只处理工作区有变更的文件
+coral doc backfill-date ./content --all               # 处理目录下全部 md
+coral doc backfill-date ./content --force             # 已有 date 的文件也替换（默认跳过）
+coral doc backfill-date ./content --all --force       # 组合使用
+coral doc backfill-date ./content --date-source first # 用最早提交时间（默认 last）
 ```
+
+> 0.3.0 之前此命令是服务启动参数 `coral --backfill-date <dir>`，已改为上述子命令形态。
 
 时间来源规则：
 
@@ -275,7 +279,7 @@ shallow = true                                     # 首次 clone 只拉最新�
 
 ```toml
 [mcp]
-enabled = true          # 默认开启；写 false 则 /mcp 返回 404
+# enabled = true        # 默认就是开启的，不用写；写 false 则 /mcp 返回 404
 # token = ""            # 非空 → 客户端需带 Authorization: Bearer <token>
 # allowed_origins = []  # 只放行这些来源的浏览器请求；留空 = 一律拒绝（命令行/桌面客户端不发 Origin，不受影响）
 ```
@@ -289,16 +293,30 @@ MCP 端点**默认开启**（默认各能力都关着，所以默认状态下工
 > **能力自检**：首次访问 `/mcp` 时会对已启用的能力做一次**静态配置检查**（每个进程一次，结果缓存）。检查未通过的能力会被停用——工具不再列出、调用它返回具体原因，端点与其他能力不受影响；**站点本身照常服务**（可选能力的问题不拖垮文档站）。
 > 注意两点：① 配错时启动日志只有 WARN，不会阻止启动，排查请看日志或直接调一次工具；② 自检**只检查配置本身**（必填项、endpoint/region 是否自洽等），**不联网**——RAM 权限不足、桶不存在、AK 失效这类问题仍会在客户端真正上传时才暴露。
 
+**配套技能：coral-doc（可选）**
+
+Coral 的 MCP 能力可以配合配套技能 [coral-doc](https://github.com/haoxz11/coral-doc) 使用：技能按文档库的约定撰写并落盘 Markdown（也支持导入钉钉文档、优化本地 md 文件），其中插图这一步交给 coral-mcp 上传并换成永久链接——所以要让 AI 自己传图，`[upload]` 得开着。
+
+正式发版的 coral 二进制内置了最新版技能，一条命令安装到 `~/.agents/skills/coral-doc`（之后使用技能时自动检查升级，本地更新则保留）：
+
+```bash
+coral skill install
+```
+
+`coral -v` 可查看内置技能版本。也可用 git clone 方式安装（见该仓库 README），但该方式不会被 coral 自动升级。
+
+技能的用法与支持范围见该仓库 README。
+
 ### `[upload]` — 附件上传到对象存储（默认关闭）
 
-让 AI 客户端把图片/附件**直接传到你的阿里云 OSS**（文件数据不经过 Coral），上传完拿到能长期贴进 Markdown 的链接。需要同时开启 `[mcp]`。
+让 AI 客户端把图片/附件**直接传到你的阿里云 OSS**（文件数据不经过 Coral），上传完拿到能长期贴进 Markdown 的链接。上传工具通过 MCP 端点 `POST /mcp` 提供，端点默认开启，不需要额外配置。
 
 ```toml
 [upload]
 enabled = true
 provider = "oss"
 endpoint = "https://oss-cn-hongkong.aliyuncs.com"  # 客户端能访问到的地址（内网部署填内网 endpoint）
-region = "cn-hongkong"                             # 必须与 bucket 所在地域一致，否则启动报错
+region = "cn-hongkong"                             # 必须与 bucket 所在地域一致，不一致则该能力被停用（启动只 WARN，不阻止启动）
 bucket = "my-docs"
 access_key_id = "LTAI..."                          # 建议用最小权限 RAM 子账号
 access_key_secret = "..."
@@ -380,8 +398,8 @@ Coral 自身的端点占用了下面这些 URL，**优先级最高**——你的
 
 ## 8. 常见问题
 
-**启动报 `缺少 --config 或 --dir 参数`？**
-Coral 不读取固定的默认配置路径，必须显式指定其一。容器镜像的默认 CMD 已指向 `/etc/coral/coral.toml`。
+**启动报 `缺少 --config 或 --dir` / 直接显示帮助？**
+两者都不指定时（裸跑），Coral 会探测默认配置 `~/.coral/config.toml`：存在则自动用它启动（stderr 提示一行）；不存在则显示帮助并退出。容器镜像的默认 CMD 已指向 `/etc/coral/coral.toml`。
 
 **改了文件页面没更新？**
 目录树是立即更新的；正文会在下一次请求时更新。若始终未更新，删除缓存目录重启排查。
