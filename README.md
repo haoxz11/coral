@@ -369,13 +369,76 @@ AI 客户端调用 `upload_file` 拿到上传凭证，直接把文件 `POST` 给
 - 链接是**不可枚举**的（路径含随机段），但 `redirect` 模式下的 `/f/...` 对任何拿到链接的人可访问——**别把机密文件放进来**
 - 只配了对象存储、但想在本地预览含附件的文档时，用 `--remote <已配置实例地址>`（见上文命令行）让远程实例解析链接
 
+### 登录（LDAP 域账号，默认关闭）
+
+> ⚠️ **先读这条**：LDAP 认证部署应置于 **HTTPS 反代**之后。直接用 HTTP 暴露时，登录提交的域密码会明文经过网络——域密码的价值远高于本站任何内容。
+
+部分目录/页面不希望全员可见时，开启 LDAP 登录。整体由配置开关控制，默认关闭（关闭时行为与原来完全一致）：
+
+```toml
+[auth]
+enabled = true
+cookie_secret = "至少16字节的随机串"   # 换这个值 = 所有人重新登录
+session_ttl_days = 30               # 会话有效期（默认 30 天，滑动续期：一直用就不掉线，闲置超过这个天数才需要重新登录）
+cookie_secure = false               # HTTPS 部署改 true
+
+[auth.ldap]
+url = "ldaps://ldap.corp.com"       # ldaps = 加密；ldap = 明文（你的选择，Coral 不唠叨）
+# 模板模式（用户 DN 能直接拼出来时用，二选一）：
+# user_dn_template = "uid={user},ou=people,dc=corp,dc=com"  # 全员同一 OU；AD 域写 "{user}@corp.com"
+# 搜索模式（用户分散在多个 OU 时用，二选一）：
+# search_base = "ou=staff,dc=corp,dc=com"     # 在这个子树里搜用户（含全部子 OU）
+# search_filter = "(uid={user})"              # 按哪个属性匹配账号名；默认 uid，可改 (cn={user}) 等
+# bind_dn = "cn=coral,ou=services,dc=corp"    # 搜索用的服务账号（建议只读）；留空 = 匿名搜索
+# bind_password = "..."                       # 与 bind_dn 成对；明文存配置，注意文件权限（见下）
+# display = "{user}"                          # 右上角回显名（默认只显示登录名）：
+#                                             # {user} = 账号名，其余 {xxx} = 目录里的 xxx 属性，
+#                                             # 如 {cn}({user}) → "张三(abc)"；属性缺失时该段置空
+#                                             # （登录日志 WARN 提示哪个占位符没取到）
+# ca_cert_file = "/etc/coral/ldap-ca.pem"     # ldaps + 内网自签证书时必配（不配会连接失败）
+
+[auth.whitelist]                    # 登录白名单（默认关闭 = 任何域账号密码正确即可登录）
+enabled = true
+users_file = "users.txt"            # 相对配置文件目录；一行一个账号名，# 开头是注释；改完即时生效不用重启
+```
+
+**两种绑定模式怎么选**： Coral 不存储任何账号密码——验证时它拿用户输入的账号密码去你的
+LDAP 服务器「登录一次」（bind），对不对由服务器说了算。区别只在于「用户名怎么换算成
+LDAP 里的记录」：
+
+- 模板模式：`user_dn_template` 本地拼接（快，但要求全员 DN 同构——AD 的 `账号@域名`
+  天然满足；OpenLDAP 全员同一 OU 也满足）
+- 搜索模式：先用服务账号（或匿名）在 `search_base` 子树里按 `search_filter` 搜出用户 DN，
+  再用「搜到的 DN + 用户密码」bind（多 OU 目录树必须用它）
+- 同名命中多条记录时取第一条并在日志 WARN（账号名本应唯一，提示管理员收紧 filter）
+
+**在内容里标记「需要登录」**：在文档的 front matter 写 `auth: true`——
+
+| 写在哪 | 效果 |
+|---|---|
+| 目录首页（`_index.md` 等） | 整个目录（含子目录）都要登录才能看；未登录的人在左侧菜单里**看不到这个目录** |
+| 普通文档 | 左侧菜单照常显示，点进去要登录（页面内嵌登录表单，登录后原地显示内容） |
+
+- `auth: false` 等于没写；目录锁了子页不能单独开门
+- 根目录首页写 `auth: true` = 整站都要登录（内部站点形态）
+- 登录后右上角显示账号，点开可退出；会话默认保持 30 天
+- 受保护目录里的图片等附件同样被锁（未登录拿不到）；注意：**单篇文档加密锁不住同目录的附件**，要锁附件请用目录加密
+
+**部署提示**
+
+- AD 域通常拒绝明文连接：`ldap://` 对 AD 大概率连不上，推荐 `ldaps://` + `ca_cert_file`
+- 搜索模式的服务账号只给**读权限**（能搜索用户条目即可）；密码明文存在配置文件——
+  裸机部署 `chmod 600 coral.toml`，K8s 用 Secret 挂载（`defaultMode: 0400`，与 git-sync 私钥同款做法）
+- `users.txt` 在 K8s 里用 ConfigMap 挂载到配置文件同级目录
+- 登录失败统一提示「用户名或密码错误」，不区分密码错还是不在白名单（不向外泄露判断依据；日志里有区分）
+
 ## 6. 别用这些 URL（Coral 自己占用了）
 
 Coral 自身的端点占用了下面这些 URL，**优先级最高**——你的内容里不要用它们（无论是 front matter 里的 `permalink`，还是文件/目录名正好撞上）：
 
 | 类别 | 路径 |
 |---|---|
-| 精确 | `/healthz`、`/readyz`、`/search`、`/search/reindex`、`/api/search`、`/api/tree/children`、`/git/webhook`、`/favicon.ico`、`/mcp` |
+| 精确 | `/healthz`、`/readyz`、`/search`、`/search/reindex`、`/api/search`、`/api/tree/children`、`/git/webhook`、`/favicon.ico`、`/mcp`、`/login`、`/logout` |
 | 前缀 | `/assets/`、`/f/` |
 
 - 这些路径**与开关无关**：即使没开启上传，`/mcp`、`/f/` 也照样被占——这样同一份内容在任何配置下表现一致
